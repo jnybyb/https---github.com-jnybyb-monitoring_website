@@ -1,23 +1,20 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Helper function to handle API errors
 const handleAPIError = (error) => {
   console.error('API Error:', error);
   
   if (error.response) {
-    // Server responded with error status
     return {
       message: error.response.data?.error || 'Server error occurred',
       status: error.response.status
     };
   } else if (error.request) {
-    // Request was made but no response received
     return {
       message: 'No response from server. Please check your connection.',
       status: 0
     };
   } else {
-    // Something else happened
     return {
       message: error.message || 'An unexpected error occurred',
       status: 0
@@ -69,105 +66,45 @@ const apiRequestWithFile = async (endpoint, formData, options = {}) => {
 
 // Beneficiaries API
 export const beneficiariesAPI = {
-  // Get all beneficiaries
-  getAll: async () => {
-    return apiRequest('/beneficiaries');
-  },
-
-  // Get single beneficiary
-  getById: async (id) => {
-    return apiRequest(`/beneficiaries/${id}`);
-  },
-
-  // Create new beneficiary
+  getAll: async () => apiRequest('/beneficiaries'),
+  getById: async (id) => apiRequest(`/beneficiaries/${id}`),
   create: async (beneficiaryData) => {
     const formData = new FormData();
-    
-    // Add all text fields
     Object.keys(beneficiaryData).forEach(key => {
       if (key !== 'picture' && beneficiaryData[key] !== null && beneficiaryData[key] !== undefined) {
         formData.append(key, beneficiaryData[key]);
       }
     });
-    
-    // Add picture file if present
     if (beneficiaryData.picture instanceof File) {
       formData.append('picture', beneficiaryData.picture);
     }
-    
-    return apiRequestWithFile('/beneficiaries', formData, {
-      method: 'POST'
-    });
+    return apiRequestWithFile('/beneficiaries', formData, { method: 'POST' });
   },
-
-  // Update beneficiary
   update: async (id, beneficiaryData) => {
     const formData = new FormData();
-    
-    // Add all text fields
     Object.keys(beneficiaryData).forEach(key => {
       if (key !== 'picture' && beneficiaryData[key] !== null && beneficiaryData[key] !== undefined) {
         formData.append(key, beneficiaryData[key]);
       }
     });
-    
-    // Add picture file if present
     if (beneficiaryData.picture instanceof File) {
       formData.append('picture', beneficiaryData.picture);
     }
-    
-    return apiRequestWithFile(`/beneficiaries/${id}`, formData, {
-      method: 'PUT'
-    });
+    return apiRequestWithFile(`/beneficiaries/${id}`, formData, { method: 'PUT' });
   },
-
-  // Delete beneficiary
-  delete: async (id) => {
-    return apiRequest(`/beneficiaries/${id}`, {
-      method: 'DELETE'
-    });
-  }
+  delete: async (id) => apiRequest(`/beneficiaries/${id}`, { method: 'DELETE' })
 };
 
 // Farm Plots API
 export const farmPlotsAPI = {
-  // Get all farm plots
-  getAll: async () => {
-    return apiRequest('/farm-plots');
-  },
-
-  // Get single farm plot
-  getById: async (id) => {
-    return apiRequest(`/farm-plots/${id}`);
-  },
-
-  // Create new farm plot
-  create: async (farmPlotData) => {
-    return apiRequest('/farm-plots', {
-      method: 'POST',
-      body: JSON.stringify(farmPlotData)
-    });
-  },
-
-  // Update farm plot
-  update: async (id, farmPlotData) => {
-    return apiRequest(`/farm-plots/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(farmPlotData)
-    });
-  },
-
-  // Delete farm plot
-  delete: async (id) => {
-    return apiRequest(`/farm-plots/${id}`, {
-      method: 'DELETE'
-    });
-  }
+  getAll: async () => apiRequest('/farm-plots'),
+  getById: async (id) => apiRequest(`/farm-plots/${id}`),
+  create: async (farmPlotData) => apiRequest('/farm-plots', { method: 'POST', body: JSON.stringify(farmPlotData) }),
+  update: async (id, farmPlotData) => apiRequest(`/farm-plots/${id}`, { method: 'PUT', body: JSON.stringify(farmPlotData) }),
+  delete: async (id) => apiRequest(`/farm-plots/${id}`, { method: 'DELETE' })
 };
 
 // Test API connection
-export const testAPI = async () => {
-  return apiRequest('/test');
-};
+export const testAPI = async () => apiRequest('/health');
 
 export { handleAPIError }; 

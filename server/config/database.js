@@ -17,48 +17,35 @@ const initialDbConfig = {
   queueLimit: 0
 };
 
-// Database configuration with database name for normal operations
-const dbConfig = {
-  ...initialDbConfig,
-  database: process.env.DB_NAME || 'coffee_monitoring'
-};
+const dbName = process.env.DB_NAME || 'coffee_monitoring';
 
-// Create initial connection pool (without database)
 const initialPool = mysql.createPool(initialDbConfig);
 const initialPromisePool = initialPool.promise();
 
-// Create connection pool for normal operations (will be replaced after DB exists)
-let pool = mysql.createPool(dbConfig);
-let promisePool = pool.promise();
+let pool = null;
+let promisePool = null;
 
-// Initialize database and create tables
 const initializeDatabase = async () => {
   try {
-    // First, create the database if it doesn't exist
     await createDatabase();
-
-    // Then create a new connection pool with the database context
     await createDatabaseConnection();
-
-    // Finally, execute the table and index creation queries
     await createTables();
+    await backfillBeneficiaryAges();
   } catch (error) {
     console.error('Database initialization failed:', error.message);
     throw error;
   }
 };
 
-// Create database first
 const createDatabase = async () => {
   try {
-    await initialPromisePool.query('CREATE DATABASE IF NOT EXISTS coffee_monitoring');
+    await initialPromisePool.query(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
   } catch (error) {
     console.error('Error creating database:', error.message);
     throw error;
   }
 };
 
-// Create a new connection pool with the database context
 const createDatabaseConnection = async () => {
   try {
     if (pool) {
@@ -67,7 +54,7 @@ const createDatabaseConnection = async () => {
 
     pool = mysql.createPool({
       ...initialDbConfig,
-      database: process.env.DB_NAME || 'coffee_monitoring'
+      database: dbName
     });
     promisePool = pool.promise();
 
@@ -78,16 +65,20 @@ const createDatabaseConnection = async () => {
   }
 };
 
-// Helper: extract table name from CREATE TABLE statement
+const getPromisePool = () => {
+  if (!promisePool) {
+    throw new Error('Database not initialized');
+  }
+  return promisePool;
+};
+
 const extractTableName = (query) => {
   const match = query.match(/^create\s+table\s+if\s+not\s+exists\s+[`"]?(\w+)[`"]?/i);
   return match ? match[1] : null;
 };
 
-// Create tables and indexes from SQL file (excluding database creation and USE statements)
 const createTables = async () => {
   try {
-    // Parse SQL queries and skip DB/USE statements
     const queries = sqlQueries
       .split(';')
       .map(q => q.trim())
@@ -100,38 +91,27 @@ const createTables = async () => {
     for (const query of queries) {
       const lower = query.toLowerCase();
 
-      // Handle CREATE TABLE IF NOT EXISTS with conditional logging
       if (lower.startsWith('create table if not exists')) {
         const tableName = extractTableName(query);
         if (!tableName) {
-          // If we cannot parse table name, just execute silently
-          try { await promisePool.query(query); } catch (error) {
+          try { await getPromisePool().query(query); } catch (error) {
             if (!(error.code === 'ER_TABLE_EXISTS_ERROR' || error.message.includes('already exists'))) {
               throw error;
             }
           }
           continue;
         }
-
-        // Check if table already exists
-        const [existsRows] = await promisePool.query('SHOW TABLES LIKE ?', [tableName]);
+        const [existsRows] = await getPromisePool().query('SHOW TABLES LIKE ?', [tableName]);
         const tableExists = Array.isArray(existsRows) && existsRows.length > 0;
-        if (tableExists) {
-          // Do nothing and no log if already exists
-          continue;
-        }
-
-        // Create table and log once created
-        await promisePool.query(query);
+        if (tableExists) continue;
+        await getPromisePool().query(query);
         console.log(`Table ${tableName} created successfully.`);
         continue;
       }
 
-      // For non-table statements (indexes, etc.), execute silently
       try {
-        await promisePool.query(query);
+        await getPromisePool().query(query);
       } catch (error) {
-        // Ignore duplicates for indexes/keys
         if (
           error.code === 'ER_DUP_KEYNAME' ||
           (typeof error.message === 'string' && error.message.includes('Duplicate key name'))
@@ -147,13 +127,27 @@ const createTables = async () => {
   }
 };
 
+// Backfill ages for existing rows if missing
+const backfillBeneficiaryAges = async () => {
+  try {
+    const [result] = await getPromisePool().query(
+      `UPDATE beneficiary_details 
+       SET age = TIMESTAMPDIFF(YEAR, birth_date, CURDATE())
+       WHERE birth_date IS NOT NULL AND (age IS NULL OR age = 0)`
+    );
+    if (result.affectedRows > 0) {
+      console.log(`Backfilled age for ${result.affectedRows} beneficiaries.`);
+    }
+  } catch (error) {
+    console.error('Error backfilling ages:', error.message);
+  }
+};
+
 module.exports = {
-  pool,
-  promisePool,
-  initialPool,
-  initialPromisePool,
+  getPromisePool,
   initializeDatabase,
   createDatabase,
   createDatabaseConnection,
-  createTables
+  createTables,
+  backfillBeneficiaryAges
 };

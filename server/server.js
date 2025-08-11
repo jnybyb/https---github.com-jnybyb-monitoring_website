@@ -1,92 +1,201 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 require('dotenv').config({ path: path.join(__dirname, 'config.env') });
 
-const { initializeDatabase } = require('./config/database');
+const { initializeDatabase, getPromisePool } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors()); // Enable CORS
-app.use(express.json()); // Parse JSON bodies
+// Helper to compute age from YYYY-MM-DD
+const calculateAge = (birthDateStr) => {
+  if (!birthDateStr) return null;
+  const birthDate = new Date(birthDateStr);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+  return age < 0 || age > 125 ? null : age;
+};
 
-// Health check route
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Static serving for uploaded images
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+// Multer config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname || '');
+    cb(null, `beneficiary-${unique}${ext}`);
+  }
+});
+const upload = multer({ storage });
+
+// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Server is running', 
-    timestamp: new Date().toISOString(),
-    port: process.env.PORT || 5000
-  });
+  res.json({ success: true, message: 'Server is running' });
 });
 
-// Test database connection route
-app.get('/api/test-db', async (req, res) => {
+// Beneficiaries routes
+app.get('/api/beneficiaries', async (req, res) => {
   try {
-    // Use the global promisePool that gets created during initialization
-    const { promisePool } = require('./config/database');
-    const [rows] = await promisePool.query('SELECT 1 as test');
-    res.json({ 
-      success: true, 
-      message: 'Database connection successful', 
-      data: rows[0] 
+    const [rows] = await getPromisePool().query('SELECT * FROM beneficiary_details ORDER BY created_at DESC');
+    // Map DB columns to UI fields
+    const data = rows.map(r => {
+      const birth = r.birth_date instanceof Date ? r.birth_date.toISOString().slice(0, 10) : r.birth_date;
+      return {
+        id: r.id,
+        beneficiaryId: r.beneficiary_id,
+        firstName: r.first_name,
+        middleName: r.middle_name,
+        lastName: r.last_name,
+        purok: r.purok,
+        barangay: r.barangay,
+        municipality: r.municipality,
+        province: r.province,
+        gender: r.gender,
+        birthDate: birth,
+        maritalStatus: r.marital_status,
+        cellphone: r.cellphone,
+        age: r.age ?? calculateAge(birth),
+        picture: r.picture ? `/uploads/${path.basename(r.picture)}` : null
+      };
     });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Database connection failed', 
-      error: error.message 
-    });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-// Manual database initialization route
-app.post('/api/init-db', async (req, res) => {
+app.get('/api/beneficiaries/:id', async (req, res) => {
   try {
-    const { initializeDatabase } = require('./config/database');
-    await initializeDatabase();
-    res.json({ 
-      success: true, 
-      message: 'Database initialized successfully' 
+    const [rows] = await getPromisePool().query('SELECT * FROM beneficiary_details WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const r = rows[0];
+    const birth = r.birth_date instanceof Date ? r.birth_date.toISOString().slice(0, 10) : r.birth_date;
+    res.json({
+      id: r.id,
+      beneficiaryId: r.beneficiary_id,
+      firstName: r.first_name,
+      middleName: r.middle_name,
+      lastName: r.last_name,
+      purok: r.purok,
+      barangay: r.barangay,
+      municipality: r.municipality,
+      province: r.province,
+      gender: r.gender,
+      birthDate: birth,
+      maritalStatus: r.marital_status,
+      cellphone: r.cellphone,
+      age: r.age ?? calculateAge(birth),
+      picture: r.picture ? `/uploads/${path.basename(r.picture)}` : null
     });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: 'Database initialization failed', 
-      error: error.message 
-    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/beneficiaries', upload.single('picture'), async (req, res) => {
+  try {
+    const body = req.body;
+    const filePath = req.file ? path.join(uploadsDir, req.file.filename) : null;
+    const computedAge = calculateAge(body.birthDate);
+    const sql = `INSERT INTO beneficiary_details 
+      (beneficiary_id, first_name, middle_name, last_name, purok, barangay, municipality, province, gender, birth_date, age, marital_status, cellphone, picture)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const params = [
+      body.beneficiaryId,
+      body.firstName,
+      body.middleName || null,
+      body.lastName,
+      body.purok,
+      body.barangay,
+      body.municipality,
+      body.province,
+      body.gender,
+      body.birthDate,
+      computedAge,
+      body.maritalStatus,
+      body.cellphone,
+      filePath
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, id: result.insertId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/beneficiaries/:id', upload.single('picture'), async (req, res) => {
+  try {
+    const body = req.body;
+    let setPicture = '';
+    const computedAge = calculateAge(body.birthDate);
+    const params = [
+      body.firstName,
+      body.middleName || null,
+      body.lastName,
+      body.purok,
+      body.barangay,
+      body.municipality,
+      body.province,
+      body.gender,
+      body.birthDate,
+      computedAge,
+      body.maritalStatus,
+      body.cellphone,
+    ];
+    if (req.file) {
+      setPicture = ', picture = ?';
+      params.push(path.join(uploadsDir, req.file.filename));
+    }
+    params.push(req.params.id);
+
+    const sql = `UPDATE beneficiary_details SET 
+      first_name = ?, middle_name = ?, last_name = ?, purok = ?, barangay = ?, municipality = ?, province = ?, gender = ?, birth_date = ?, age = ?, marital_status = ?, cellphone = ?${setPicture}
+      WHERE id = ?`;
+
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/beneficiaries/:id', async (req, res) => {
+  try {
+    const [result] = await getPromisePool().query('DELETE FROM beneficiary_details WHERE id = ?', [req.params.id]);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
 // Initialize database and start server
 const startServer = async () => {
   try {
-    // Initialize database
     await initializeDatabase();
-    
-    // Start server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
-    
   } catch (error) {
     console.error('Failed to start server:', error.message);
     process.exit(1);
   }
 };
 
-// Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  process.exit(0);
-});
+process.on('SIGTERM', () => process.exit(0));
+process.on('SIGINT', () => process.exit(0));
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully...');
-  process.exit(0);
-});
-
-// Start the server
 startServer();
