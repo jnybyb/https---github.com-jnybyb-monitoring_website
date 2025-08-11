@@ -12,7 +12,7 @@ import Button from '../../ui/Buttons';
 import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
-// Remove: import { beneficiaryAPI } from '../../../services/api';
+import { cropStatusAPI, handleAPIError } from '../../../services/api';
 
 // Inline NoDataIcon component
 const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
@@ -117,12 +117,7 @@ const getAlertConfig = (type, title, message) => ({
 });
 
 const CropStatusTable = () => {
-  const [alertModal, setAlertModal] = useState({
-    isOpen: false,
-    type: 'success',
-    title: '',
-    message: ''
-  });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
   const [cropStatusData, setCropStatusData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -134,221 +129,106 @@ const CropStatusTable = () => {
 
   const styles = getCommonStyles();
 
-  // Fetch crop status data
   const fetchCropStatus = async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // TODO: Replace with actual API call
-      // const response = await cropStatusAPI.getAll();
-      // setCropStatusData(response.data || []);
-      
-      // For now, set empty data to show "no data available"
-      setCropStatusData([]);
+      const data = await cropStatusAPI.getAll();
+      setCropStatusData(data || []);
     } catch (err) {
-      setError('Failed to fetch crop status records. Please try again.');
-      console.error('Error fetching crop status:', err);
+      const e = handleAPIError(err);
+      setError(e.message || 'Failed to fetch crop status records. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load crop status on component mount
-  useEffect(() => {
-    fetchCropStatus();
-  }, []);
+  useEffect(() => { fetchCropStatus(); }, []);
 
-  // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = cropStatusData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(cropStatusData.length / itemsPerPage);
 
-  // Handle page change
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Handle API operations with alert feedback
   const handleApiOperation = async (operation, successMessage, errorMessage) => {
     try {
       await operation();
       await fetchCropStatus();
       setAlertModal(getAlertConfig('success', 'Success', successMessage));
     } catch (err) {
-      setError(err.message || errorMessage);
-      console.error('API operation error:', err);
-      setAlertModal(getAlertConfig('error', 'Failed', err.message || errorMessage));
+      const e = handleAPIError(err);
+      setError(e.message || errorMessage);
+      setAlertModal(getAlertConfig('error', 'Failed', e.message || errorMessage));
     }
   };
 
-  // Handle add crop status record
   const handleAddCropStatus = async (newRecord) => {
     await handleApiOperation(
-      () => Promise.resolve(), // Replace with actual API call
+      () => cropStatusAPI.create(newRecord),
       'Crop status record has been added successfully.',
       'Failed to add crop status record. Please try again.'
     );
   };
 
-  // Handle edit crop status record
   const handleEditCropStatus = async (updatedRecord) => {
     await handleApiOperation(
-      () => Promise.resolve(), // Replace with actual API call
+      () => cropStatusAPI.update(updatedRecord.id, updatedRecord),
       'Crop status record has been updated successfully.',
       'Failed to update crop status record. Please try again.'
     );
   };
 
-  // Handle delete crop status record
   const handleDeleteCropStatus = async (recordId) => {
     await handleApiOperation(
-      () => Promise.resolve(), // Replace with actual API call
+      () => cropStatusAPI.delete(recordId),
       'Crop status record has been deleted successfully.',
       'Failed to delete crop status record. Please try again.'
     );
   };
 
-  // Handle add button click
-  const handleAddClick = () => {
-    setIsAddModalOpen(true);
-  };
-
-  // Handle add modal close
-  const handleAddModalClose = () => {
-    setIsAddModalOpen(false);
-  };
-
-  // Handle add modal submit
+  const handleAddClick = () => setIsAddModalOpen(true);
+  const handleAddModalClose = () => setIsAddModalOpen(false);
   const handleAddModalSubmit = async (formData) => {
     try {
       await handleAddCropStatus(formData);
       setIsAddModalOpen(false);
     } catch (error) {
-      console.error('Error adding crop status:', error);
+      // handled
     }
   };
 
-  // Handle edit button click
   const handleEditClick = (record) => {
-    // TODO: Implement edit modal
     console.log('Edit record:', record);
   };
 
-  // Handle delete button click
   const handleDeleteClick = (record) => {
     if (window.confirm('Are you sure you want to delete this crop status record? This action cannot be undone.')) {
-      handleDeleteCropStatus(record._id);
+      handleDeleteCropStatus(record.id);
     }
   };
 
-  // Handle alert modal close
-  const handleAlertClose = () => {
-    setAlertModal({ ...alertModal, isOpen: false });
-  };
-
-  // Format data for display
   const formatCropStatusForDisplay = (record) => {
     return {
-      surveyDate: new Date(record.surveyDate).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      }),
+      surveyDate: new Date(record.surveyDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
       surveyer: record.surveyer,
       beneficiaryId: record.beneficiaryId,
       pictures: record.pictures && record.pictures.length > 0 ? (
-        <div style={{ 
-          width: '28px', 
-          height: '28px', 
-          borderRadius: '50%', 
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f8f9fa',
-          border: '2px solid #e8f5e8',
-          cursor: 'pointer'
-        }}
-        title="Click to view pictures"
-        onClick={() => {
-          // TODO: Implement picture viewer modal
-          console.log('View pictures:', record.pictures);
-        }}>
-          <img 
-            src={`http://localhost:5000/uploads/${record.pictures[0]}`} 
-            alt="Crop Survey" 
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover'
-            }}
-          />
+        <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa', border: '2px solid #e8f5e8', cursor: 'pointer' }}
+          title="Click to view pictures"
+          onClick={() => console.log('View pictures:', record.pictures)}>
+          <img src={`http://localhost:5000/uploads/${record.pictures[0]}`} alt="Crop Survey" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       ) : (
-        <div style={{ 
-          width: '28px', 
-          height: '28px', 
-          borderRadius: '50%', 
-          backgroundColor: '#f8f9fa',
-          border: '2px solid #e8f5e8',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px'
-        }}>
-          📷
-        </div>
+        <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#f8f9fa', border: '2px solid #e8f5e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>📷</div>
       ),
-      aliveCrops: (
-        <span style={{ 
-          color: '#28a745',
-          fontWeight: '600',
-          fontSize: '0.6rem'
-        }}>
-          {record.aliveCrops.toLocaleString()}
-        </span>
-      ),
-      deadCrops: (
-        <span style={{ 
-          color: '#dc3545',
-          fontWeight: '600',
-          fontSize: '0.6rem'
-        }}>
-          {record.deadCrops.toLocaleString()}
-        </span>
-      ),
+      aliveCrops: (<span style={{ color: '#28a745', fontWeight: '600', fontSize: '0.6rem' }}>{record.aliveCrops.toLocaleString()}</span>),
+      deadCrops: (<span style={{ color: '#dc3545', fontWeight: '600', fontSize: '0.6rem' }}>{record.deadCrops.toLocaleString()}</span>),
       actions: (
-        <div style={{
-          display: 'flex',
-          gap: '0.5rem',
-          justifyContent: 'center'
-        }}>
-          <button
-            onClick={() => handleEditClick(record)}
-            style={{
-              ...styles.actionButton,
-              color: '#2c5530'
-            }}
-            onMouseOver={(e) => e.target.style.color = '#1e3a23'}
-            onMouseOut={(e) => e.target.style.color = '#2c5530'}
-            title="Edit"
-          >
-            <AiOutlineEdit size={12} />
-          </button>
-          <button
-            onClick={() => handleDeleteClick(record)}
-            style={{
-              ...styles.actionButton,
-              color: '#dc3545'
-            }}
-            onMouseOver={(e) => e.target.style.color = '#c82333'}
-            onMouseOut={(e) => e.target.style.color = '#dc3545'}
-            title="Delete"
-          >
-            <HiOutlineTrash size={12} />
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+          <button onClick={() => handleEditClick(record)} style={{ ...styles.actionButton, color: '#2c5530' }} onMouseOver={(e) => e.target.style.color = '#1e3a23'} onMouseOut={(e) => e.target.style.color = '#2c5530'} title="Edit"><AiOutlineEdit size={12} /></button>
+          <button onClick={() => handleDeleteClick(record)} style={{ ...styles.actionButton, color: '#dc3545' }} onMouseOver={(e) => e.target.style.color = '#c82333'} onMouseOut={(e) => e.target.style.color = '#dc3545'} title="Delete"><HiOutlineTrash size={12} /></button>
         </div>
       )
     };
@@ -356,38 +236,18 @@ const CropStatusTable = () => {
 
   return (
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      {/* Header section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
         <div>
           <h2 style={{ color: '#2c5530', marginBottom: '0.2rem', fontSize: '1.4rem' }}>Crop Status</h2>
           <p style={{ color: '#6c757d', margin: '0', fontSize: '0.60rem' }}>Survey results and crop health monitoring</p>
         </div>
-        <Button
-          onClick={handleAddClick}
-          type="primary"
-          size="medium"
-          icon="+"
-        >
-          Add Record
-        </Button>
+        <Button onClick={handleAddClick} type="primary" size="medium" icon="+">Add Record</Button>
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div style={{
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          padding: '10px',
-          borderRadius: '4px',
-          marginBottom: '1rem',
-          border: '1px solid #f5c6cb',
-          fontSize: '0.65rem'
-        }}>
-          {error}
-        </div>
+        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '4px', marginBottom: '1rem', border: '1px solid #f5c6cb', fontSize: '0.65rem' }}>{error}</div>
       )}
-      
-      {/* Table container */}
+
       <div style={{ overflowX: 'auto', marginTop: '1rem', flex: '1', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
           <div style={styles.emptyState}>
@@ -406,9 +266,7 @@ const CropStatusTable = () => {
             <thead>
               <tr style={{ backgroundColor: '#f0f8f0'}}>
                 {columns.map((column, index) => (
-                  <th key={index} style={styles.tableHeader}>
-                    {column}
-                  </th>
+                  <th key={index} style={styles.tableHeader}>{column}</th>
                 ))}
               </tr>
             </thead>
@@ -416,18 +274,11 @@ const CropStatusTable = () => {
               {currentItems.map((record, rowIndex) => {
                 const displayData = formatCropStatusForDisplay(record);
                 return (
-                  <tr key={record._id || rowIndex} style={{
-                    borderBottom: '1px solid #e8f5e8',
-                    transition: 'background-color 0.2s',
-                    height: '28px',
-                    backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
+                  <tr key={record.id || rowIndex} style={{ borderBottom: '1px solid #e8f5e8', transition: 'background-color 0.2s', height: '28px', backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white' }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
                     {Object.values(displayData).map((cell, cellIndex) => (
-                      <td key={cellIndex} style={styles.tableCell}>
-                        {cell}
-                      </td>
+                      <td key={cellIndex} style={styles.tableCell}>{cell}</td>
                     ))}
                   </tr>
                 );
@@ -437,78 +288,24 @@ const CropStatusTable = () => {
         )}
       </div>
 
-      {/* Pagination - Always at bottom */}
       {!loading && cropStatusData.length > 0 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '0.5rem',
-          padding: '0.5rem',
-          backgroundColor: 'white',
-          borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', // 30% opacity
-          position: 'sticky',
-          bottom: '0',
-          flexShrink: 0
-        }}>
-          {/* Items info - bottom left */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0.5rem', backgroundColor: 'white', borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', position: 'sticky', bottom: '0', flexShrink: 0 }}>
           <div style={{ fontSize: '0.65rem', color: '#6c757d' }}>
             Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, cropStatusData.length)} of {cropStatusData.length} entries
           </div>
-
-          {/* Pagination controls - bottom right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <Button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              type="pagination"
-              size="pagination"
-            >
-              &lt;
-            </Button>
-
-            {/* Page numbers */}
+            <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} type="pagination" size="pagination">&lt;</Button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                type={currentPage === page ? 'paginationActive' : 'pagination'}
-                size="pagination"
-                style={{ minWidth: '28px' }}
-              >
-                {page}
-              </Button>
+              <Button key={page} onClick={() => handlePageChange(page)} type={currentPage === page ? 'paginationActive' : 'pagination'} size="pagination" style={{ minWidth: '28px' }}>{page}</Button>
             ))}
-
-            <Button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              type="pagination"
-              size="pagination"
-            >
-              &gt;
-            </Button>
+            <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} type="pagination" size="pagination">&gt;</Button>
           </div>
         </div>
       )}
 
-      {/* Alert Modal */}
-      <AlertModal
-        isOpen={alertModal.isOpen}
-        onClose={handleAlertClose}
-        type={alertModal.type}
-        title={alertModal.title}
-        message={alertModal.message}
-        autoClose={true}
-        autoCloseDelay={3000}
-      />
+      <AlertModal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ ...alertModal, isOpen: false })} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={true} autoCloseDelay={3000} />
 
-      {/* Add Crop Status Modal */}
-      <AddCropStatusModal
-        isOpen={isAddModalOpen}
-        onClose={handleAddModalClose}
-        onSubmit={handleAddModalSubmit}
-      />
+      <AddCropStatusModal isOpen={isAddModalOpen} onClose={handleAddModalClose} onSubmit={handleAddModalSubmit} />
     </div>
   );
 };

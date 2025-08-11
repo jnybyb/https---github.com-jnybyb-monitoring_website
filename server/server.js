@@ -182,6 +182,158 @@ app.delete('/api/beneficiaries/:id', async (req, res) => {
   }
 });
 
+// Seedling Records routes
+app.get('/api/seedlings', async (req, res) => {
+  try {
+    const [rows] = await getPromisePool().query('SELECT * FROM seedling_records ORDER BY date_of_planting DESC, created_at DESC');
+    const data = rows.map(r => ({
+      id: r.id,
+      beneficiaryId: r.beneficiary_id,
+      received: r.received,
+      planted: r.planted,
+      hectares: Number(r.hectares),
+      dateOfPlanting: r.date_of_planting,
+      gps: r.gps
+    }));
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/seedlings', async (req, res) => {
+  try {
+    const body = req.body;
+    const sql = `INSERT INTO seedling_records 
+      (beneficiary_id, received, planted, hectares, date_of_planting, gps)
+      VALUES (?, ?, ?, ?, ?, ?)`;
+    const params = [
+      body.beneficiaryId,
+      Number(body.received),
+      Number(body.planted),
+      Number(body.hectares),
+      body.dateOfPlanting,
+      body.gps || null
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, id: result.insertId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/seedlings/:id', async (req, res) => {
+  try {
+    const body = req.body;
+    const sql = `UPDATE seedling_records SET 
+      beneficiary_id = ?, received = ?, planted = ?, hectares = ?, date_of_planting = ?, gps = ?
+      WHERE id = ?`;
+    const params = [
+      body.beneficiaryId,
+      Number(body.received),
+      Number(body.planted),
+      Number(body.hectares),
+      body.dateOfPlanting,
+      body.gps || null,
+      req.params.id
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/seedlings/:id', async (req, res) => {
+  try {
+    const [result] = await getPromisePool().query('DELETE FROM seedling_records WHERE id = ?', [req.params.id]);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Crop Status routes (supports photo uploads)
+app.get('/api/crop-status', async (req, res) => {
+  try {
+    const [rows] = await getPromisePool().query('SELECT * FROM crop_status ORDER BY survey_date DESC, created_at DESC');
+    const data = rows.map(r => ({
+      id: r.id,
+      surveyDate: r.survey_date,
+      surveyer: r.surveyer,
+      beneficiaryId: r.beneficiary_id,
+      aliveCrops: r.alive_crops,
+      deadCrops: r.dead_crops,
+      pictures: Array.isArray(r.pictures) ? r.pictures : (r.pictures ? JSON.parse(r.pictures) : [])
+    }));
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/crop-status', upload.array('pictures', 10), async (req, res) => {
+  try {
+    const body = req.body;
+    const files = (req.files || []).map(f => path.basename(f.path));
+    const sql = `INSERT INTO crop_status 
+      (survey_date, surveyer, beneficiary_id, alive_crops, dead_crops, pictures)
+      VALUES (?, ?, ?, ?, ?, ?)`;
+    const params = [
+      body.surveyDate,
+      body.surveyer,
+      body.beneficiaryId,
+      Number(body.aliveCrops),
+      Number(body.deadCrops || 0),
+      JSON.stringify(files)
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, id: result.insertId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) => {
+  try {
+    const body = req.body;
+    const files = (req.files || []).map(f => path.basename(f.path));
+
+    // If new files uploaded, replace pictures; otherwise keep existing
+    let setPictures = '';
+    const params = [
+      body.surveyDate,
+      body.surveyer,
+      body.beneficiaryId,
+      Number(body.aliveCrops),
+      Number(body.deadCrops || 0)
+    ];
+    if (files.length > 0) {
+      setPictures = ', pictures = ?';
+      params.push(JSON.stringify(files));
+    }
+    params.push(req.params.id);
+
+    const sql = `UPDATE crop_status SET 
+      survey_date = ?, surveyer = ?, beneficiary_id = ?, alive_crops = ?, dead_crops = ?${setPictures}
+      WHERE id = ?`;
+
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/crop-status/:id', async (req, res) => {
+  try {
+    const [result] = await getPromisePool().query('DELETE FROM crop_status WHERE id = ?', [req.params.id]);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Initialize database and start server
 const startServer = async () => {
   try {

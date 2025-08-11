@@ -112,9 +112,13 @@ const createTables = async () => {
       try {
         await getPromisePool().query(query);
       } catch (error) {
+        // Ignore duplicates for indexes/keys and foreign keys already present
+        const msg = String(error.message || '').toLowerCase();
         if (
           error.code === 'ER_DUP_KEYNAME' ||
-          (typeof error.message === 'string' && error.message.includes('Duplicate key name'))
+          msg.includes('duplicate key name') ||
+          msg.includes('duplicate foreign key constraint name') ||
+          msg.includes("can't create table") && msg.includes('errno: 121')
         ) {
           continue;
         }

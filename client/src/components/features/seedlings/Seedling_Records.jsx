@@ -11,33 +11,7 @@ import Button from '../../ui/Buttons';
 import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddSeedlingRecordModal from './AddSeedlingRecordModal';
-// Removed API imports
-
-// Dummy data for initial state
-const DUMMY_BENEFICIARIES = [
-  { beneficiaryId: 'B001', fullName: 'Juan Dela Cruz' },
-  { beneficiaryId: 'B002', fullName: 'Maria Santos' },
-];
-const DUMMY_SEEDLING_RECORDS = [
-  {
-    _id: 'R001',
-    beneficiaryId: 'B001',
-    received: 1000,
-    planted: 900,
-    hectares: 1.5,
-    dateOfPlanting: '2023-06-15',
-    gps: '7.2167, 126.3333',
-  },
-  {
-    _id: 'R002',
-    beneficiaryId: 'B002',
-    received: 800,
-    planted: 800,
-    hectares: 1.2,
-    dateOfPlanting: '2023-07-10',
-    gps: '7.2200, 126.3400',
-  },
-];
+import { seedlingsAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
 
 // Inline NoDataIcon component
 const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
@@ -149,8 +123,8 @@ const SeedlingRecordsTable = () => {
     title: '',
     message: ''
   });
-  const [seedlingRecordsData, setSeedlingRecordsData] = useState(DUMMY_SEEDLING_RECORDS);
-  const [beneficiaries, setBeneficiaries] = useState(DUMMY_BENEFICIARIES);
+  const [seedlingRecordsData, setSeedlingRecordsData] = useState([]);
+  const [beneficiaries, setBeneficiaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -163,11 +137,32 @@ const SeedlingRecordsTable = () => {
 
   const styles = getCommonStyles();
 
-  // Remove fetchSeedlingRecords and useEffect for fetching
-  // Load seedling records on component mount
-  // useEffect(() => {
-  //   fetchSeedlingRecords();
-  // }, []);
+  const fetchAll = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [records, bens] = await Promise.all([
+        seedlingsAPI.getAll(),
+        beneficiariesAPI.getAll()
+      ]);
+      setSeedlingRecordsData(records || []);
+      // Map beneficiaries for name lookup
+      const mapped = (bens || []).map(b => ({
+        beneficiaryId: b.beneficiaryId,
+        fullName: b.fullName || `${b.firstName} ${b.middleName ? b.middleName + ' ' : ''}${b.lastName}`.trim()
+      }));
+      setBeneficiaries(mapped);
+    } catch (err) {
+      const e = handleAPIError(err);
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAll();
+  }, []);
 
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -175,47 +170,57 @@ const SeedlingRecordsTable = () => {
   const currentItems = seedlingRecordsData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(seedlingRecordsData.length / itemsPerPage);
 
-  // Handle page change
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Replace handleApiOperation and API logic with local state updates
   const handleAddSeedlingRecord = async (newRecord) => {
-    setSeedlingRecordsData(prev => [
-      { ...newRecord, _id: `R${Date.now()}` },
-      ...prev,
-    ]);
-    setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been added successfully.'));
-  };
-  const handleEditSeedlingRecord = async (updatedRecord) => {
-    setSeedlingRecordsData(prev => prev.map(r =>
-      r._id === selectedRecord._id ? { ...selectedRecord, ...updatedRecord } : r
-    ));
-    setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been updated successfully.'));
-  };
-  const handleDeleteSeedlingRecord = async (recordId) => {
-    setSeedlingRecordsData(prev => prev.filter(r => r._id !== recordId));
-    setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been deleted successfully.'));
+    try {
+      await seedlingsAPI.create(newRecord);
+      setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been added successfully.'));
+      await fetchAll();
+    } catch (err) {
+      const e = handleAPIError(err);
+      setError(e.message);
+      setAlertModal(getAlertConfig('error', 'Failed', e.message));
+    }
   };
 
-  // Handle edit button click
+  const handleEditSeedlingRecord = async (updatedRecord) => {
+    try {
+      await seedlingsAPI.update(selectedRecord.id, updatedRecord);
+      setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been updated successfully.'));
+      await fetchAll();
+    } catch (err) {
+      const e = handleAPIError(err);
+      setError(e.message);
+      setAlertModal(getAlertConfig('error', 'Failed', e.message));
+    }
+  };
+
+  const handleDeleteSeedlingRecord = async (recordId) => {
+    try {
+      await seedlingsAPI.delete(recordId);
+      setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been deleted successfully.'));
+      await fetchAll();
+    } catch (err) {
+      const e = handleAPIError(err);
+      setError(e.message);
+      setAlertModal(getAlertConfig('error', 'Failed', e.message));
+    }
+  };
+
   const handleEditClick = (record) => {
     setSelectedRecord(record);
     setIsEditModalOpen(true);
   };
 
-  // Handle delete button click
   const handleDeleteClick = (record) => {
     if (window.confirm('Are you sure you want to delete this seedling record? This action cannot be undone.')) {
-      handleDeleteSeedlingRecord(record._id);
+      handleDeleteSeedlingRecord(record.id);
     }
   };
 
-  // Handle alert modal close
   const handleAlertClose = () => {
     setAlertModal({ ...alertModal, isOpen: false });
-    // Close modals after alert closes
     setTimeout(() => {
       setIsModalOpen(false);
       setIsEditModalOpen(false);
@@ -223,36 +228,22 @@ const SeedlingRecordsTable = () => {
     }, 100);
   };
 
-  // Format data for display
   const formatSeedlingRecordForDisplay = (record) => {
-    // Find beneficiary by ID to get the full name
     const beneficiary = beneficiaries.find(b => b.beneficiaryId === record.beneficiaryId);
     const beneficiaryName = beneficiary ? beneficiary.fullName : record.beneficiaryId;
-    
     return {
       beneficiaryName: beneficiaryName,
       beneficiaryId: record.beneficiaryId,
-      received: record.received.toLocaleString(),
-      planted: record.planted.toLocaleString(),
-      hectares: `${record.hectares} ha`,
-      dateOfPlanting: new Date(record.dateOfPlanting).toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      }),
+      received: Number(record.received).toLocaleString(),
+      planted: Number(record.planted).toLocaleString(),
+      hectares: `${Number(record.hectares)} ha`,
+      dateOfPlanting: new Date(record.dateOfPlanting).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
       gps: record.gps || 'N/A',
       actions: (
-        <div style={{
-          display: 'flex',
-          gap: '0.5rem',
-          justifyContent: 'center'
-        }}>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
           <button
             onClick={() => handleEditClick(record)}
-            style={{
-              ...styles.actionButton,
-              color: '#2c5530'
-            }}
+            style={{ ...styles.actionButton, color: '#2c5530' }}
             onMouseOver={(e) => e.target.style.color = '#1e3a23'}
             onMouseOut={(e) => e.target.style.color = '#2c5530'}
             title="Edit"
@@ -261,10 +252,7 @@ const SeedlingRecordsTable = () => {
           </button>
           <button
             onClick={() => handleDeleteClick(record)}
-            style={{
-              ...styles.actionButton,
-              color: '#dc3545'
-            }}
+            style={{ ...styles.actionButton, color: '#dc3545' }}
             onMouseOver={(e) => e.target.style.color = '#c82333'}
             onMouseOut={(e) => e.target.style.color = '#dc3545'}
             title="Delete"
@@ -278,42 +266,25 @@ const SeedlingRecordsTable = () => {
 
   return (
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      {/* Header section */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
         <div>
           <h2 style={{ color: '#2c5530', marginBottom: '0.2rem', fontSize: '1.4rem' }}>Seedling Records</h2>
           <p style={{ color: '#6c757d', margin: '0', fontSize: '0.60rem' }}>Coffee seedling distribution and planting records</p>
         </div>
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          type="primary"
-          size="medium"
-          icon="+"
-        >
-          Add Record
-        </Button>
+        <Button onClick={() => setIsModalOpen(true)} type="primary" size="medium" icon="+">Add Record</Button>
       </div>
 
-      {/* Error Message */}
       {error && (
-        <div style={{
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          padding: '10px',
-          borderRadius: '4px',
-          marginBottom: '1rem',
-          border: '1px solid #f5c6cb',
-          fontSize: '0.65rem'
-        }}>
+        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '4px', marginBottom: '1rem', border: '1px solid #f5c6cb', fontSize: '0.65rem' }}>
           {error}
         </div>
       )}
-      
-      {/* Table container */}
+
       <div style={{ overflowX: 'auto', marginTop: '1rem', flex: '1', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
           <div style={styles.emptyState}>
-                          <LoadingSpinner color="#2c5530" />
+            <LoadingSpinner color="#2c5530" />
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>Loading...</h3>
             <p style={{ color: '#6c757d', margin: '0', fontSize: '0.875rem' }}>Please wait while we fetch the seedling records.</p>
           </div>
@@ -328,9 +299,7 @@ const SeedlingRecordsTable = () => {
             <thead>
               <tr style={{ backgroundColor: '#f0f8f0'}}>
                 {columns.map((column, index) => (
-                  <th key={index} style={styles.tableHeader}>
-                    {column}
-                  </th>
+                  <th key={index} style={styles.tableHeader}>{column}</th>
                 ))}
               </tr>
             </thead>
@@ -338,18 +307,11 @@ const SeedlingRecordsTable = () => {
               {currentItems.map((record, rowIndex) => {
                 const displayData = formatSeedlingRecordForDisplay(record);
                 return (
-                  <tr key={record._id || rowIndex} style={{
-                    borderBottom: '1px solid #e8f5e8',
-                    transition: 'background-color 0.2s',
-                    height: '28px',
-                    backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
+                  <tr key={record.id || rowIndex} style={{ borderBottom: '1px solid #e8f5e8', transition: 'background-color 0.2s', height: '28px', backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white' }}
+                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
+                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
                     {Object.values(displayData).map((cell, cellIndex) => (
-                      <td key={cellIndex} style={styles.tableCell}>
-                        {cell}
-                      </td>
+                      <td key={cellIndex} style={styles.tableCell}>{cell}</td>
                     ))}
                   </tr>
                 );
@@ -359,94 +321,30 @@ const SeedlingRecordsTable = () => {
         )}
       </div>
 
-      {/* Pagination - Always at bottom */}
       {!loading && seedlingRecordsData.length > 0 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '0.5rem',
-          padding: '0.5rem',
-          backgroundColor: 'white',
-          borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', // 30% opacity
-          position: 'sticky',
-          bottom: '0',
-          flexShrink: 0
-        }}>
-          {/* Items info - bottom left */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0.5rem', backgroundColor: 'white', borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', position: 'sticky', bottom: '0', flexShrink: 0 }}>
           <div style={{ fontSize: '0.65rem', color: '#6c757d' }}>
             Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, seedlingRecordsData.length)} of {seedlingRecordsData.length} entries
           </div>
-
-          {/* Pagination controls - bottom right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <Button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              type="pagination"
-              size="pagination"
-            >
-              &lt;
-            </Button>
-
-            {/* Page numbers */}
+            <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} type="pagination" size="pagination">&lt;</Button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                type={currentPage === page ? 'paginationActive' : 'pagination'}
-                size="pagination"
-                style={{ minWidth: '28px' }}
-              >
-                {page}
-              </Button>
+              <Button key={page} onClick={() => handlePageChange(page)} type={currentPage === page ? 'paginationActive' : 'pagination'} size="pagination" style={{ minWidth: '28px' }}>{page}</Button>
             ))}
-
-            <Button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              type="pagination"
-              size="pagination"
-            >
-              &gt;
-            </Button>
+            <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} type="pagination" size="pagination">&gt;</Button>
           </div>
         </div>
       )}
 
-      {/* Add Seedling Record Modal */}
       {isModalOpen && (
-        <AddSeedlingRecordModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={handleAddSeedlingRecord}
-        />
+        <AddSeedlingRecordModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleAddSeedlingRecord} />
       )}
 
-      {/* Edit Seedling Record Modal */}
       {isEditModalOpen && selectedRecord && (
-        <AddSeedlingRecordModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setSelectedRecord(null);
-          }}
-          onSubmit={handleEditSeedlingRecord}
-          record={selectedRecord}
-          isEdit={true}
-        />
+        <AddSeedlingRecordModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedRecord(null); }} onSubmit={handleEditSeedlingRecord} record={selectedRecord} isEdit={true} />
       )}
 
-      {/* Alert Modal */}
-      <AlertModal
-        isOpen={alertModal.isOpen}
-        onClose={handleAlertClose}
-        type={alertModal.type}
-        title={alertModal.title}
-        message={alertModal.message}
-        autoClose={true}
-        autoCloseDelay={3000}
-      />
+      <AlertModal isOpen={alertModal.isOpen} onClose={handleAlertClose} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={true} autoCloseDelay={3000} />
     </div>
   );
 };

@@ -21,3 +21,44 @@ CREATE TABLE IF NOT EXISTS beneficiary_details (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS seedling_records (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  beneficiary_id VARCHAR(10) NOT NULL,
+  received INT NOT NULL,
+  planted INT NOT NULL,
+  hectares DECIMAL(8,2) NOT NULL,
+  date_of_planting DATE NOT NULL,
+  gps VARCHAR(100) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_seedlings_beneficiary_id (beneficiary_id)
+);
+
+CREATE TABLE IF NOT EXISTS crop_status (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  survey_date DATE NOT NULL,
+  surveyer VARCHAR(100) NOT NULL,
+  beneficiary_id VARCHAR(10) NOT NULL,
+  alive_crops INT NOT NULL,
+  dead_crops INT NOT NULL DEFAULT 0,
+  pictures JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_crop_status_beneficiary_id (beneficiary_id),
+  INDEX idx_crop_status_survey_date (survey_date)
+);
+
+ALTER TABLE seedling_records
+  ADD CONSTRAINT fk_seedlings_beneficiary
+  FOREIGN KEY (beneficiary_id)
+  REFERENCES beneficiary_details(beneficiary_id)
+  ON UPDATE CASCADE
+  ON DELETE RESTRICT;
+
+ALTER TABLE crop_status
+  ADD CONSTRAINT fk_crop_status_beneficiary
+  FOREIGN KEY (beneficiary_id)
+  REFERENCES beneficiary_details(beneficiary_id)
+  ON UPDATE CASCADE
+  ON DELETE RESTRICT;

@@ -95,6 +95,54 @@ export const beneficiariesAPI = {
   delete: async (id) => apiRequest(`/beneficiaries/${id}`, { method: 'DELETE' })
 };
 
+// Seedlings API
+export const seedlingsAPI = {
+  getAll: async () => apiRequest('/seedlings'),
+  create: async (record) => apiRequest('/seedlings', {
+    method: 'POST',
+    body: JSON.stringify(record)
+  }),
+  update: async (id, record) => apiRequest(`/seedlings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(record)
+  }),
+  delete: async (id) => apiRequest(`/seedlings/${id}`, { method: 'DELETE' })
+};
+
+// Crop Status API
+export const cropStatusAPI = {
+  getAll: async () => apiRequest('/crop-status'),
+  create: async (record) => {
+    const formData = new FormData();
+    formData.append('surveyDate', record.surveyDate);
+    formData.append('surveyer', record.surveyer);
+    formData.append('beneficiaryId', record.beneficiaryId);
+    formData.append('aliveCrops', record.aliveCrops);
+    formData.append('deadCrops', record.deadCrops ?? 0);
+    if (Array.isArray(record.pictures)) {
+      record.pictures.forEach(file => {
+        if (file instanceof File) formData.append('pictures', file);
+      });
+    }
+    return apiRequestWithFile('/crop-status', formData, { method: 'POST' });
+  },
+  update: async (id, record) => {
+    const formData = new FormData();
+    formData.append('surveyDate', record.surveyDate);
+    formData.append('surveyer', record.surveyer);
+    formData.append('beneficiaryId', record.beneficiaryId);
+    formData.append('aliveCrops', record.aliveCrops);
+    formData.append('deadCrops', record.deadCrops ?? 0);
+    if (Array.isArray(record.pictures)) {
+      record.pictures.forEach(file => {
+        if (file instanceof File) formData.append('pictures', file);
+      });
+    }
+    return apiRequestWithFile(`/crop-status/${id}`, formData, { method: 'PUT' });
+  },
+  delete: async (id) => apiRequest(`/crop-status/${id}`, { method: 'DELETE' })
+};
+
 // Farm Plots API
 export const farmPlotsAPI = {
   getAll: async () => apiRequest('/farm-plots'),
