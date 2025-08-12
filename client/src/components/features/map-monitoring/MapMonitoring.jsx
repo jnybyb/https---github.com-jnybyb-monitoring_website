@@ -31,9 +31,9 @@ const createCornerMarkerIcon = (color) => {
   });
 };
 
-// Custom location marker icon with beneficiary profile
-const createLocationMarkerIcon = (color, beneficiaryName) => {
-  // Generate initials from beneficiary name for the profile picture
+// Custom location marker icon with beneficiary profile picture
+const createLocationMarkerIcon = (beneficiaryPicture, beneficiaryName, plotColor) => {
+  // Generate initials from beneficiary name as fallback
   const getInitials = (name) => {
     if (!name) return '?';
     return name.split(' ')
@@ -48,44 +48,69 @@ const createLocationMarkerIcon = (color, beneficiaryName) => {
   return L.divIcon({
     className: 'custom-location-marker',
     html: `<div style="
-      width: 32px; 
-      height: 40px; 
+      width: 50px; 
+      height: 65px; 
       position: relative;
     ">
+      <!-- Pin shape using border-radius for teardrop shape -->
       <div style="
-        width: 32px; 
-        height: 32px; 
-        background-color: ${color}; 
-        border: 2px solid white; 
+        width: 50px; 
+        height: 50px; 
+        background-color: ${plotColor || '#2d7c4a'};
         border-radius: 50% 50% 50% 0; 
         transform: rotate(-45deg);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         position: absolute;
         top: 0;
         left: 0;
       "></div>
+      
+      <!-- Profile picture circle - positioned without rotation to stay upright -->
       <div style="
-        width: 20px; 
-        height: 20px; 
+        width: 38px; 
+        height: 38px; 
         background-color: white; 
-        border: 2px solid ${color}; 
+        border: 1px solid ${plotColor || '#2d7c4a'}; 
         border-radius: 50%; 
         position: absolute;
         top: 6px;
         left: 6px;
-        transform: rotate(45deg);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: bold;
-        color: ${color};
-        font-size: 10px;
-        font-family: Arial, sans-serif;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-      ">${initials}</div>
+        overflow: hidden;
+        z-index: 1;
+      ">
+        ${beneficiaryPicture ? 
+          `<img src="http://localhost:5000${beneficiaryPicture}" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" />` : 
+          `<div style="
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background-color: #f8f9fa; 
+            color: #6c757d; 
+            font-weight: bold; 
+            font-size: 14px; 
+            font-family: Arial, sans-serif;
+          ">${initials}</div>`
+        }
+      </div>
+      
+      <!-- Pin base circle -->
+      <div style="
+        width: 6px; 
+        height: 6px; 
+        background-color: ${plotColor || '#2d7c4a'}; 
+        border-radius: 50%; 
+        position: absolute;
+        bottom: 0;
+        left: 22px;
+        transform: translateX(-50%);
+      "></div>
     </div>`,
-    iconSize: [32, 40],
-    iconAnchor: [16, 40]
+    iconSize: [50, 65],
+    iconAnchor: [25, 65]
   });
 };
 
@@ -122,6 +147,7 @@ const MapMonitoring = () => {
   const [loadingFarmPlots, setLoadingFarmPlots] = useState(false);
   const [isCreatingPlot, setIsCreatingPlot] = useState(false); // Loading state for plot creation
   const [showSuccessModal, setShowSuccessModal] = useState(false); // Success modal state
+  const [currentMapLayer, setCurrentMapLayer] = useState('satellite'); // Current map layer
 
   const styles = {
     container: {
@@ -130,9 +156,8 @@ const MapMonitoring = () => {
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
-      maxHeight: '100vh',
       backgroundColor: '#f8f9fa',
-      gap: '1.5rem',
+      gap: '0.5rem',
       overflow: 'hidden'
     },
     detailsPanel: {
@@ -141,18 +166,22 @@ const MapMonitoring = () => {
       maxWidth: '350px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '1rem'
+      gap: '0.5rem',
+      height: 'calc(100vh - 8rem)',
+      overflow: 'hidden'
     },
     mapPanel: {
       flex: 1, // Takes the remaining space (7/8)
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      height: 'calc(100vh - 8rem)',
+      overflow: 'hidden'
     },
     title: {
       color: 'var(--forest-color)',
       fontSize: '1.5rem',
       fontWeight: '700',
-      marginBottom: '0.1rem'
+      marginBottom: '1.5rem'
     },
     subtitle: {
       color: '#6c757d',
@@ -206,43 +235,93 @@ const MapMonitoring = () => {
       overflow: 'hidden',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       border: '1px solid #e8f5e8',
-      position: 'relative',
-      maxHeight: '67vh',
-      minHeight: '400px'
+      position: 'relative'
     },
     map: {
       width: '100%',
-      height: '100%',
-      minHeight: '400px',
-      maxHeight: '67vh'
+      height: '100%'
+    },
+    mapLayerControls: {
+      position: 'absolute',
+      bottom: '20px',
+      right: '20px',
+      backgroundColor: 'transparent',
+      borderRadius: '8px',
+      boxShadow: 'none',
+      border: 'none',
+      zIndex: 1000,
+      padding: '0'
+    },
+    mapLayerOptions: {
+      display: 'flex',
+      gap: '0'
+    },
+    mapLayerButton: {
+      border: 'none',
+      backgroundColor: 'transparent',
+      cursor: 'pointer',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0',
+      margin: '0',
+      width: '60px',
+      height: '60px'
+    },
+    mapLayerButtonActive: {
+      border: 'none',
+      backgroundColor: 'transparent'
+    },
+    mapLayerIcon: {
+      width: '40px',
+      height: '40px',
+      borderRadius: '6px',
+      marginBottom: '4px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '10px',
+      border: '1px solid #e0e0e0'
+    },
+    mapLayerLabel: {
+      fontSize: '10px',
+      color: '#666',
+      fontWeight: '400',
+      textAlign: 'center',
+      margin: 0,
+      lineHeight: '1'
     },
     statsPanel: {
       backgroundColor: 'white',
-      padding: '1.25rem',
+      padding: '1rem',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
       border: '1px solid #e8f5e8',
       display: 'flex',
       flexDirection: 'column',
       flex: 1,
-      minHeight: 0
+      minHeight: 0,
+      overflow: 'hidden'
     },
     statItem: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '0.75rem 0',
-      borderBottom: '1px solid #f0f0f0'
+      padding: '0.5rem 0',
+      borderBottom: '1px solid #f0f0f0',
+      gap: '1rem'
     },
     statLabel: {
       color: '#6c757d',
-      fontSize: '0.8rem',
-      fontWeight: '500'
+      fontSize: '1rem',
+      fontWeight: '600'
     },
     statValue: {
       color: '#2c5530',
-      fontSize: '0.9rem',
-      fontWeight: '600'
+      fontSize: '1rem',
+      fontWeight: '700',
+      paddingRight: '0.5rem'
     },
     plotsListPanel: {
       marginTop: '1rem',
@@ -258,52 +337,69 @@ const MapMonitoring = () => {
       flex: 1,
       overflowY: 'auto',
       paddingRight: '0.5rem',
-      marginTop: '1rem',
-      borderTop: '1px solid #f0f0f0',
-      paddingTop: '1rem',
-      minHeight: 0
+      marginTop: '0.5rem',
+      minHeight: 0,
+      maxHeight: 'calc(100vh - 350px)',
+      scrollbarWidth: 'thin',
+      scrollbarColor: '#2d7c4a #f0f0f0'
     },
     plotItem: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '1rem',
-      backgroundColor: '#f8f9fa',
-      borderRadius: '8px',
+      padding: '0.75rem',
+      borderBottom: '1px solid #e8f5e8',
       border: '1px solid #e8f5e8',
-      marginBottom: '0.75rem'
+      borderRadius: '6px',
+      marginBottom: '0.5rem',
+      gap: '1rem'
     },
     plotNumber: {
-      fontSize: '0.8rem',
+      fontSize: '0.7rem',
       fontWeight: '600',
-      color: '#2c5530',
-      minWidth: '50px'
+      color: '#2c5530'
     },
     farmerInfo: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       gap: '0.75rem',
       flex: 1
+    },
+    farmerAvatar: {
+      width: '28px',
+      height: '28px',
+      backgroundColor: '#2d7c4a',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'white',
+      fontSize: '0.6rem',
+      fontWeight: '600',
+      flexShrink: 0,
+      marginTop: '2px'
     },
     farmerDetails: {
       display: 'flex',
       flexDirection: 'column',
-      gap: '0.3rem'
+      gap: '0.2rem',
+      flex: 1
     },
     farmerName: {
-      fontSize: '0.8rem',
+      fontSize: '0.7rem',
       fontWeight: '500',
       color: '#343a40'
     },
     beneficiaryId: {
-      fontSize: '0.65rem',
+      fontSize: '0.6rem',
       color: '#6c757d'
     },
     plotActions: {
       display: 'flex',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       justifyContent: 'center',
-      minWidth: '30px'
+      minWidth: '30px',
+      marginTop: '2px'
     },
     threeDotsButton: {
       background: 'none',
@@ -449,14 +545,40 @@ const MapMonitoring = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <>
+      <style>
+        {`
+          .plots-list-container::-webkit-scrollbar {
+            width: 6px;
+          }
+          .plots-list-container::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 3px;
+          }
+          .plots-list-container::-webkit-scrollbar-thumb {
+            background: #2d7c4a;
+            border-radius: 3px;
+          }
+          .plots-list-container::-webkit-scrollbar-thumb:hover {
+            background: #1e5a3a;
+          }
+        `}
+      </style>
+      <div style={styles.container}>
       {/* Header Section */}
       <div>
         <h2 style={styles.title}>Map Monitoring</h2>
-        <p style={styles.subtitle}>Real-time location monitoring</p>
       </div>
       {/* Map and Details Section */}
-      <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', flex: 1 }}>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'row', 
+        gap: '1.5rem', 
+        flex: 1,
+        height: 'calc(100vh - 8rem)',
+        alignItems: 'flex-start',
+        overflow: 'hidden'
+      }}>
         <div style={styles.mapPanel}>
           <div style={styles.mapContainer}>
             <MapContainer 
@@ -466,8 +588,8 @@ const MapMonitoring = () => {
               scrollWheelZoom={true}
             >
               <TileLayer
-                attribution={mapLayers.satellite.attribution}
-                url={mapLayers.satellite.url}
+                attribution={mapLayers[currentMapLayer].attribution}
+                url={mapLayers[currentMapLayer].url}
               />
 
               {/* Farm Plot Boundaries and Corner Markers */}
@@ -529,7 +651,7 @@ const MapMonitoring = () => {
                       <Marker
                         key={`${plot.id}-location`}
                         position={[centerPoint.lat, centerPoint.lng]}
-                        icon={createLocationMarkerIcon(plot.color, plot.beneficiaryName)}
+                        icon={createLocationMarkerIcon(plot.beneficiaryPicture, plot.beneficiaryName, plot.color)}
                       >
                         <Popup>
                           <div style={{ minWidth: '250px' }}>
@@ -552,20 +674,32 @@ const MapMonitoring = () => {
                                 <div style={{
                                   width: '48px',
                                   height: '48px',
-                                  backgroundColor: plot.color || '#2d7c4a',
+                                  backgroundColor: '#f8f9fa',
                                   borderRadius: '50%',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  color: 'white',
+                                  color: '#6c757d',
                                   fontSize: '18px',
                                   fontWeight: 'bold',
-                                  border: '3px solid #e8f5e8'
+                                  border: '3px solid #e8f5e8',
+                                  overflow: 'hidden'
                                 }}>
-                                  {plot.beneficiaryName ? 
-                                    plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
-                                    '??'
-                                  }
+                                  {plot.beneficiaryPicture ? (
+                                    <img 
+                                      src={`http://localhost:5000${plot.beneficiaryPicture}`} 
+                                      alt="Profile" 
+                                      style={{ 
+                                        width: '100%', 
+                                        height: '100%', 
+                                        objectFit: 'cover'
+                                      }}
+                                    />
+                                  ) : (
+                                    plot.beneficiaryName ? 
+                                      plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
+                                      '??'
+                                  )}
                                 </div>
                                 <div>
                                   <div style={{ marginBottom: '6px' }}>
@@ -587,53 +721,200 @@ const MapMonitoring = () => {
 
               <ScaleControl />
             </MapContainer>
+            
+            {/* Map Layer Controls */}
+            <div style={styles.mapLayerControls}>
+              <div style={styles.mapLayerOptions}>
+                <button 
+                  style={{
+                    ...styles.mapLayerButton,
+                    ...(currentMapLayer === 'satellite' ? styles.mapLayerButtonActive : {}),
+                  }}
+                  onClick={() => setCurrentMapLayer('satellite')}
+                  title="Satellite View"
+                >
+                  <div style={{ 
+                    ...styles.mapLayerIcon, 
+                    background: '#f0f0f0',
+                    border: '1px solid #d0d0d0',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '0',
+                      left: '0',
+                      right: '0',
+                      bottom: '0',
+                      background: 'repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 2px, #d0d0d0 2px, #d0d0d0 4px)',
+                      borderRadius: '4px'
+                    }}></div>
+                  </div>
+                  <span style={{...styles.mapLayerLabel, color: '#666'}}>Satellite</span>
+                </button>
+                <button 
+                  style={{
+                    ...styles.mapLayerButton,
+                    ...(currentMapLayer === 'terrain' ? styles.mapLayerButtonActive : {}),
+                  }}
+                  onClick={() => setCurrentMapLayer('terrain')}
+                  title="Terrain View"
+                >
+                  <div style={{ 
+                    ...styles.mapLayerIcon, 
+                    background: '#e8e8e8',
+                    border: '1px solid #d0d0d0',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '0',
+                      left: '0',
+                      right: '0',
+                      bottom: '0',
+                      background: '#d8d8d8',
+                      borderRadius: '4px'
+                    }}></div>
+                    <div style={{
+                      position: 'absolute',
+                      top: '15px',
+                      left: '5px',
+                      right: '5px',
+                      height: '3px',
+                      background: '#c0c0c0',
+                      borderRadius: '2px',
+                      transform: 'rotate(-15deg)'
+                    }}></div>
+                    <div style={{
+                      position: 'absolute',
+                      top: '25px',
+                      left: '8px',
+                      right: '8px',
+                      height: '2px',
+                      background: '#b0b0b0',
+                      borderRadius: '1px',
+                      transform: 'rotate(10deg)'
+                    }}></div>
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '12px',
+                      right: '12px',
+                      height: '2px',
+                      background: '#a0a0a0',
+                      borderRadius: '1px',
+                      transform: 'rotate(-5deg)'
+                    }}></div>
+                  </div>
+                  <span style={{...styles.mapLayerLabel, color: '#666'}}>Terrain</span>
+                </button>
+                <button 
+                  style={{
+                    ...styles.mapLayerButton,
+                    ...(currentMapLayer === 'street' ? styles.mapLayerButtonActive : {}),
+                  }}
+                  onClick={() => setCurrentMapLayer('street')}
+                  title="Street View"
+                >
+                  <div style={{ 
+                    ...styles.mapLayerIcon, 
+                    background: 'linear-gradient(45deg, #87CEEB 0%, #98FB98 50%, #F0E68C 100%)',
+                    border: '1px solid #87CEEB',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '2px',
+                      left: '2px',
+                      right: '2px',
+                      bottom: '2px',
+                      background: 'linear-gradient(45deg, #87CEEB 0%, #98FB98 50%, #F0E68C 100%)',
+                      borderRadius: '4px'
+                    }}></div>
+                    <div style={{
+                      position: 'absolute',
+                      top: '8px',
+                      left: '8px',
+                      right: '8px',
+                      bottom: '8px',
+                      background: 'linear-gradient(90deg, #87CEEB 0%, #98FB98 100%)',
+                      borderRadius: '2px'
+                    }}></div>
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      left: '12px',
+                      right: '12px',
+                      bottom: '12px',
+                      background: '#F0E68C',
+                      borderRadius: '1px'
+                    }}></div>
+                  </div>
+                  <span style={{...styles.mapLayerLabel, color: '#87CEEB'}}>Street</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         {/* Details Panel */}
         <div style={styles.detailsPanel}>
-          {/* Add Farm Plot Button - No container */}
+          {/* Add Farm Plot Button at the top */}
           <button 
-            style={{ ...styles.controlButton, width: '100%', marginBottom: '1rem' }}
+            style={{ ...styles.controlButton, width: '100%', marginBottom: '0.5rem' }}
             onClick={() => setShowAddModal(true)}
           >
-            Add Farm/Plot Location
+            Add Farm Plot
           </button>
           
-          {/* Plots Summary and List - Combined Container */}
+          {/* Farm Plots Summary and List */}
           <div style={styles.statsPanel}>
             <div style={styles.statItem}>
-              <span style={styles.statLabel}>Plots</span>
-              <span style={styles.statValue}>{farmPlots?.length || 0}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <span style={{...styles.statLabel, color: '#1a3d1f', fontWeight: '700'}}>Farm Plots</span>
+                <span style={styles.statValue}>{farmPlots?.length || 0}</span>
+              </div>
             </div>
             
-            {/* Plots List - Inside the same container */}
+            {/* Plots List */}
             {farmPlots && farmPlots.length > 0 && (
-              <div style={styles.plotsListContainer}>
+              <div style={styles.plotsListContainer} className="plots-list-container">
                 {farmPlots.map((plot, index) => (
-                  <div key={plot.id || index} style={styles.plotItem}>
-                    <div style={styles.plotNumber}>Plot #{index + 1}</div>
+                  <div 
+                    key={plot.id || index} 
+                    style={{...styles.plotItem, cursor: 'pointer'}}
+                    onClick={() => handlePlotActions(plot, index)}
+                  >
                     <div style={styles.farmerInfo}>
-                      <div style={styles.farmerAvatar}>
-                        {plot.beneficiaryName ? 
-                          plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
-                          '??'
-                        }
+                      <div style={{
+                        ...styles.farmerAvatar,
+                        backgroundColor: '#f8f9fa',
+                        color: '#6c757d',
+                        overflow: 'hidden'
+                      }}>
+                        {plot.beneficiaryPicture ? (
+                          <img 
+                            src={`http://localhost:5000${plot.beneficiaryPicture}`} 
+                            alt="Profile" 
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'cover'
+                            }}
+                          />
+                        ) : (
+                          plot.beneficiaryName ? 
+                            plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
+                            '??'
+                        )}
                       </div>
                       <div style={styles.farmerDetails}>
                         <div style={styles.farmerName}>{plot.beneficiaryName || 'Unknown Farmer'}</div>
                         <div style={styles.beneficiaryId}>ID: {plot.beneficiaryId || 'N/A'}</div>
                       </div>
-
                     </div>
-                    <div style={styles.plotActions}>
-                      <button 
-                        style={styles.threeDotsButton}
-                        onClick={() => handlePlotActions(plot, index)}
-                        title="Plot actions"
-                      >
-                        ⋮
-                      </button>
-                    </div>
+                    <div style={styles.plotNumber}>Plot #{index + 1}</div>
                   </div>
                 ))}
               </div>
@@ -661,7 +942,8 @@ const MapMonitoring = () => {
         autoClose={true}
         autoCloseDelay={3000}
       />
-    </div>
+      </div>
+    </>
   );
 };
 

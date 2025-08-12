@@ -527,7 +527,8 @@ app.get('/api/farm-plots', async (req, res) => {
               fp.color,
               fp.coordinates,
               bd.first_name, bd.middle_name, bd.last_name,
-              bd.purok, bd.barangay, bd.municipality, bd.province
+              bd.purok, bd.barangay, bd.municipality, bd.province,
+              bd.picture
        FROM farm_plots fp
        JOIN beneficiary_details bd ON bd.beneficiary_id = fp.beneficiary_id
        ORDER BY fp.created_at DESC`
@@ -540,7 +541,8 @@ app.get('/api/farm-plots', async (req, res) => {
       color: r.color || '#2d7c4a',
       coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
       beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ',')
+      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ','),
+      beneficiaryPicture: r.picture ? `/uploads/${path.basename(r.picture)}` : null
     }));
 
     res.json(data);
@@ -588,7 +590,8 @@ app.post('/api/farm-plots', async (req, res) => {
               fp.color,
               fp.coordinates,
               bd.first_name, bd.middle_name, bd.last_name,
-              bd.purok, bd.barangay, bd.municipality, bd.province
+              bd.purok, bd.barangay, bd.municipality, bd.province,
+              bd.picture
        FROM farm_plots fp
        JOIN beneficiary_details bd ON bd.beneficiary_id = fp.beneficiary_id
        WHERE fp.id = ?`,
@@ -602,7 +605,8 @@ app.post('/api/farm-plots', async (req, res) => {
       color: r.color || '#2d7c4a',
       coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
       beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
-      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ',')
+      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ','),
+      beneficiaryPicture: r.picture ? `/uploads/${path.basename(r.picture)}` : null
     };
     res.json(created);
   } catch (e) {
