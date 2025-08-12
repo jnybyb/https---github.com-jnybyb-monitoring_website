@@ -44,14 +44,11 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
         if (isEdit && record && formData.beneficiaryId) {
           const beneficiary = mapped.find(b => b.beneficiaryId === formData.beneficiaryId);
           if (beneficiary) {
-            console.log('Found beneficiary for edit:', beneficiary); // Debug log
             setFormData(prev => ({
               ...prev,
               beneficiaryName: beneficiary.fullName,
               beneficiaryPicture: beneficiary.picture
             }));
-          } else {
-            console.log('Beneficiary not found for ID:', formData.beneficiaryId); // Debug log
           }
         }
       } catch (err) {
@@ -74,7 +71,6 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
   // Load record data when editing
   useEffect(() => {
     if (isEdit && record && isOpen) {
-      console.log('Loading record data for edit:', record); // Debug log
       setFormData({
         id: record.id || '',
         surveyDate: record.surveyDate ? new Date(record.surveyDate).toISOString().split('T')[0] : '',
@@ -92,15 +88,6 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
       } else {
         setSelectedFiles([]);
       }
-      console.log('Form data set for edit:', {
-        id: record.id,
-        surveyDate: record.surveyDate,
-        surveyer: record.surveyer,
-        beneficiaryId: record.beneficiaryId,
-        aliveCrops: record.aliveCrops,
-        deadCrops: record.deadCrops,
-        pictures: record.pictures
-      }); // Debug log
     }
   }, [isEdit, record, isOpen]);
 
@@ -175,7 +162,6 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
         submitData.pictures = selectedFiles;
       }
       
-      console.log('Submitting crop status data:', submitData); // Debug log
       await onSubmit(submitData);
       onClose();
     } catch (error) {

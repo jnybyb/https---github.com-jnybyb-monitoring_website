@@ -153,6 +153,17 @@ export const farmPlotsAPI = {
   delete: async (id) => apiRequest(`/farm-plots/${id}`, { method: 'DELETE' })
 };
 
+// Philippine Addresses API
+export const addressesAPI = {
+  getProvinces: async () => apiRequest('/addresses/provinces'),
+  getMunicipalities: async (province) => apiRequest(`/addresses/municipalities/${encodeURIComponent(province)}`),
+  getBarangays: async (province, municipality) => apiRequest(`/addresses/barangays/${encodeURIComponent(province)}/${encodeURIComponent(municipality)}`),
+  syncAddresses: async (addresses) => apiRequest('/addresses/sync', {
+    method: 'POST',
+    body: JSON.stringify({ addresses })
+  })
+};
+
 // Test API connection
 export const testAPI = async () => apiRequest('/health');
 

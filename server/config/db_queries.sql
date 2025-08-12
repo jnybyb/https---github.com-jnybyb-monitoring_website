@@ -81,3 +81,17 @@ ALTER TABLE farm_plots
   REFERENCES beneficiary_details(beneficiary_id)
   ON UPDATE CASCADE
   ON DELETE CASCADE;
+
+-- Philippine Address Data Table
+CREATE TABLE IF NOT EXISTS philippine_addresses (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  province VARCHAR(100) NOT NULL,
+  municipality VARCHAR(100) NOT NULL,
+  barangay VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_address (province, municipality, barangay),
+  INDEX idx_province (province),
+  INDEX idx_municipality (municipality),
+  INDEX idx_barangay (barangay)
+);

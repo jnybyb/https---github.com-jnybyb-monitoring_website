@@ -457,32 +457,21 @@ app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) =
     const files = (req.files || []).map(f => path.basename(f.path));
     const recordId = req.params.id;
 
-    console.log('Crop status update request - ID param:', recordId);
-    console.log('Crop status update request body:', body);
-    console.log('Files:', files);
+
 
     // Validate ID parameter
     if (!recordId || isNaN(parseInt(recordId))) {
-      console.log('Validation failed - invalid ID:', recordId);
       return res.status(400).json({ error: 'Invalid record ID' });
     }
 
     // Validate required fields and convert to proper types
     if (!body.surveyDate || !body.surveyer || !body.beneficiaryId || body.aliveCrops === undefined || body.aliveCrops === null) {
-      console.log('Validation failed - missing fields:', {
-        surveyDate: body.surveyDate,
-        surveyer: body.surveyer,
-        beneficiaryId: body.beneficiaryId,
-        aliveCrops: body.aliveCrops
-      });
       return res.status(400).json({ error: 'Missing required fields: surveyDate, surveyer, beneficiaryId, or aliveCrops' });
     }
 
     // Convert numeric fields with proper validation
     const aliveCrops = parseInt(body.aliveCrops);
     const deadCrops = parseInt(body.deadCrops || 0);
-    
-    console.log('Parsed numeric values:', { aliveCrops, deadCrops });
     
     if (isNaN(aliveCrops) || aliveCrops < 0) {
       return res.status(400).json({ error: 'Invalid aliveCrops value' });
@@ -506,8 +495,6 @@ app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) =
       params.push(JSON.stringify(files));
     }
     params.push(recordId);
-
-    console.log('SQL params:', params);
 
     const sql = `UPDATE crop_status SET 
       survey_date = ?, surveyer = ?, beneficiary_id = ?, alive_crops = ?, dead_crops = ?${setPictures}
@@ -651,10 +638,200 @@ app.delete('/api/farm-plots/:id', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Philippine Address API endpoints
+app.get('/api/addresses/provinces', async (req, res) => {
+  try {
+    // Load provinces directly from the JSON file
+    try {
+      const addressDataPath = path.join(__dirname, 'data', 'philippine_addresses.json');
+      const fileContent = fs.readFileSync(addressDataPath, 'utf8');
+      const jsonData = JSON.parse(fileContent);
+      
+      // Extract all province names from the JSON structure
+      const provinces = jsonData.map(province => province.province).sort((a, b) => a.localeCompare(b));
+      
+      res.json(provinces);
+    } catch (fileError) {
+      console.error('Error reading province data from JSON:', fileError.message);
+      // Fallback to database if JSON read fails
+      const [rows] = await getPromisePool().query(
+        'SELECT DISTINCT province FROM philippine_addresses ORDER BY province'
+      );
+      const provinces = rows.map(row => row.province);
+      res.json(provinces);
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/addresses/municipalities/:province', async (req, res) => {
+  try {
+    // Load municipalities from the JSON file
+    try {
+      const addressDataPath = path.join(__dirname, 'data', 'philippine_addresses.json');
+      const fileContent = fs.readFileSync(addressDataPath, 'utf8');
+      const jsonData = JSON.parse(fileContent);
+      
+      // Find the province and extract its municipalities
+      const provinceData = jsonData.find(p => p.province === req.params.province);
+      if (provinceData && Array.isArray(provinceData.municipalities)) {
+        const municipalities = [...provinceData.municipalities].sort((a, b) => a.localeCompare(b));
+        res.json(municipalities);
+      } else {
+        res.json([]);
+      }
+    } catch (fileError) {
+      console.error('Error reading municipality data from JSON:', fileError.message);
+      // Fallback to database if JSON read fails
+      const [rows] = await getPromisePool().query(
+        'SELECT DISTINCT municipality FROM philippine_addresses WHERE province = ? ORDER BY municipality',
+        [req.params.province]
+      );
+      const municipalities = rows.map(row => row.municipality);
+      res.json(municipalities);
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/addresses/barangays/:province/:municipality', async (req, res) => {
+  try {
+    // For barangays, we need to check if it's Davao Oriental (which has detailed barangay data)
+    // or other provinces (which only have municipality names in the JSON)
+    if (req.params.province === 'Davao Oriental') {
+      try {
+        // Use the detailed davao-oriental.json for barangays
+        const fallbackPath = path.join(__dirname, 'data', 'municipalities', 'davao-oriental.json');
+        const content = fs.readFileSync(fallbackPath, 'utf8');
+        const jsonData = JSON.parse(content);
+        const entry = jsonData.find(e => e.municipality === req.params.municipality);
+        if (entry && Array.isArray(entry.barangays)) {
+          const barangays = [...entry.barangays].sort((a, b) => a.localeCompare(b));
+          res.json(barangays);
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Error reading Davao Oriental barangay data:', fallbackErr.message);
+      }
+    }
+    
+    // For other provinces or fallback, try database first
+    try {
+      const [rows] = await getPromisePool().query(
+        'SELECT DISTINCT barangay FROM philippine_addresses WHERE province = ? AND municipality = ? ORDER BY barangay',
+        [req.params.province, req.params.municipality]
+      );
+      const barangays = rows.map(row => row.barangay);
+      res.json(barangays);
+    } catch (dbError) {
+      console.error('Database error for barangays:', dbError.message);
+      res.json([]);
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/addresses/sync', async (req, res) => {
+  try {
+    const { addresses } = req.body;
+    if (!Array.isArray(addresses)) {
+      return res.status(400).json({ error: 'Addresses must be an array' });
+    }
+
+    // Use INSERT IGNORE to avoid duplicates
+    const sql = `INSERT IGNORE INTO philippine_addresses (province, municipality, barangay) VALUES ?`;
+    const values = addresses.map(addr => [addr.province, addr.municipality, addr.barangay]);
+    
+    const [result] = await getPromisePool().query(sql, values);
+    res.json({ 
+      success: true, 
+      message: `Synced ${result.affectedRows} new addresses`,
+      totalAddresses: addresses.length
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Function to fetch Philippine address data from JSON file and sync to database
+const syncPhilippineAddresses = async () => {
+  try {
+    // Check if we already have address data
+    const [existingRows] = await getPromisePool().query('SELECT COUNT(*) as count FROM philippine_addresses');
+    if (existingRows[0].count > 0) {
+      console.log('Address data already exists in database, skipping sync');
+      return;
+    }
+
+    console.log('Loading Philippine address data from JSON file...');
+    
+    // Load address data from JSON file
+    const addressDataPath = path.join(__dirname, 'data', 'philippine_addresses.json');
+    let addressData = [];
+    
+    try {
+      const fileContent = fs.readFileSync(addressDataPath, 'utf8');
+      const jsonData = JSON.parse(fileContent);
+      
+      // Flatten the hierarchical data structure
+      jsonData.forEach(province => {
+        province.municipalities.forEach(municipality => {
+          municipality.barangays.forEach(barangay => {
+            addressData.push({
+              province: province.province,
+              municipality: municipality.name,
+              barangay: barangay
+            });
+          });
+        });
+      });
+      
+      console.log(`Processed ${addressData.length} addresses from JSON file`);
+      console.log('Sample addresses:', addressData.slice(0, 3));
+    } catch (fileError) {
+      console.error('Error reading address data file:', fileError.message);
+      // Fallback to basic data if file read fails
+      addressData = [
+        { province: 'Davao Oriental', municipality: 'Manay', barangay: 'Central' },
+        { province: 'Davao Oriental', municipality: 'Manay', barangay: 'San Isidro' },
+        { province: 'Davao Oriental', municipality: 'Manay', barangay: 'Rizal' }
+      ];
+    }
+
+    if (addressData.length > 0) {
+      // Insert the address data using individual INSERT statements to avoid syntax issues
+      const sql = `INSERT IGNORE INTO philippine_addresses (province, municipality, barangay) VALUES (?, ?, ?)`;
+      
+      let insertedCount = 0;
+      for (const addr of addressData) {
+        try {
+          const [result] = await getPromisePool().query(sql, [addr.province, addr.municipality, addr.barangay]);
+          if (result.affectedRows > 0) {
+            insertedCount++;
+          }
+        } catch (insertError) {
+          // Log individual insert errors but continue with other records
+          console.error(`Error inserting address ${addr.province}, ${addr.municipality}, ${addr.barangay}:`, insertError.message);
+        }
+      }
+      
+      console.log(`Synced ${insertedCount} Philippine addresses to database`);
+    }
+    
+  } catch (error) {
+    console.error('Error syncing Philippine addresses:', error.message);
+  }
+};
+
 // Initialize database and start server
 const startServer = async () => {
   try {
     await initializeDatabase();
+    await syncPhilippineAddresses();
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

@@ -140,7 +140,6 @@ const CropStatusTable = () => {
       setLoading(true);
       setError(null);
       const data = await cropStatusAPI.getAll();
-      console.log('Fetched crop status data:', data); // Debug log
       setCropStatusData(data || []);
     } catch (err) {
       const e = handleAPIError(err);
@@ -192,7 +191,6 @@ const CropStatusTable = () => {
   };
 
   const handleEditCropStatus = async (updatedRecord) => {
-    console.log('Updating crop status record:', updatedRecord); // Debug log
     if (!updatedRecord.id) {
       setAlertModal(getAlertConfig('error', 'Failed', 'Record ID is missing. Cannot update record.'));
       return;
@@ -254,7 +252,6 @@ const CropStatusTable = () => {
   };
 
   const handleEditClick = (record) => {
-    console.log('Edit clicked for record:', record); // Debug log
     setSelectedRecord(record);
     setIsEditModalOpen(true);
   };

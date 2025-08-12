@@ -1,5 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 import LoadingSpinner from '../../ui/LoadingSpinner';
+import { useAddressData } from '../../../hooks/useAddressData';
 
 // Common styles
 const getCommonStyles = () => ({
@@ -98,7 +99,9 @@ const SelectField = memo(({
   onChange, 
   options, 
   required = false, 
-  error 
+  error,
+  disabled = false,
+  placeholder
 }) => {
   const styles = getCommonStyles();
   
@@ -112,14 +115,19 @@ const SelectField = memo(({
           name={name}
           value={value}
           onChange={onChange}
+          disabled={disabled}
           style={{
             ...styles.select,
             border: `1px solid ${error ? 'var(--red)' : 'var(--gray)'}`,
-            color: value ? 'var(--black)' : '#adb5bd'
+            color: value ? 'var(--black)' : '#adb5bd',
+            backgroundColor: disabled ? '#f8f9fa' : 'white',
+            cursor: disabled ? 'not-allowed' : 'pointer'
           }}
           className="custom-select-dropdown"
         >
-          <option value="" disabled style={{ color: '#adb5bd' }}>Select {label.toLowerCase()}</option>
+          <option value="" disabled style={{ color: '#adb5bd' }}>
+            {placeholder || `Select ${label.toLowerCase()}`}
+          </option>
           {options.map(option => (
             <option key={option.value || option} value={option.value || option} style={{ color: 'var(--black)' }}>
               {option.label || option}
@@ -134,7 +142,7 @@ const SelectField = memo(({
           transform: 'translateY(-50%)',
           pointerEvents: 'none',
           fontSize: '12px',
-          color: '#adb5bd'
+          color: disabled ? '#adb5bd' : '#adb5bd'
         }}>
           ▼
         </span>
@@ -148,27 +156,6 @@ const SelectField = memo(({
 
 // Data options
 const getDataOptions = () => ({
-  provinces: [
-    'Abra', 'Agusan del Norte', 'Agusan del Sur', 'Aklan', 'Albay', 'Antique', 'Apayao', 'Aurora',
-    'Basilan', 'Bataan', 'Batanes', 'Batangas', 'Benguet', 'Biliran', 'Bohol', 'Bukidnon',
-    'Bulacan', 'Cagayan', 'Camarines Norte', 'Camarines Sur', 'Camiguin', 'Capiz', 'Catanduanes',
-    'Cavite', 'Cebu', 'Cotabato', 'Davao de Oro', 'Davao del Norte', 'Davao del Sur', 'Davao Occidental',
-    'Davao Oriental', 'Dinagat Islands', 'Eastern Samar', 'Guimaras', 'Ifugao', 'Ilocos Norte',
-    'Ilocos Sur', 'Iloilo', 'Isabela', 'Kalinga', 'La Union', 'Laguna', 'Lanao del Norte',
-    'Lanao del Sur', 'Leyte', 'Maguindanao', 'Marinduque', 'Masbate', 'Metro Manila', 'Misamis Occidental',
-    'Misamis Oriental', 'Mountain Province', 'Negros Occidental', 'Negros Oriental', 'Northern Samar',
-    'Nueva Ecija', 'Nueva Vizcaya', 'Occidental Mindoro', 'Oriental Mindoro', 'Palawan', 'Pampanga',
-    'Pangasinan', 'Quezon', 'Quirino', 'Rizal', 'Romblon', 'Samar', 'Sarangani', 'Siquijor',
-    'Sorsogon', 'South Cotabato', 'Southern Leyte', 'Sultan Kudarat', 'Sulu', 'Surigao del Norte',
-    'Surigao del Sur', 'Tarlac', 'Tawi-Tawi', 'Zambales', 'Zamboanga del Norte', 'Zamboanga del Sur',
-    'Zamboanga Sibugay'
-  ],
-  barangays: [
-    'Capasnan', 'Cayawan', 'Central', 'Concepcion', 'Del Pilar',
-    'Guza', 'Holy Cross', 'Lambog', 'Mabini', 'Manreza',
-    'New Taokanga', 'Old Macopa', 'Rizal', 'San Fermin', 'San Ignacio',
-    'San Isidro', 'Zaragosa'
-  ],
   genderOptions: [
     { value: 'Male', label: 'Male' },
     { value: 'Female', label: 'Female' }
@@ -205,6 +192,19 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
 
   const styles = getCommonStyles();
   const options = getDataOptions();
+  
+  // Address data hook
+  const {
+    provinces,
+    municipalities,
+    barangays,
+    loading: addressLoading,
+    error: addressError,
+    loadMunicipalities,
+    loadBarangays,
+    resetMunicipalities,
+    resetBarangays
+  } = useAddressData();
 
   // Initialize form data when beneficiary prop changes
   useEffect(() => {
@@ -226,8 +226,16 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
         picture: null
       });
       setErrors({});
+      
+      // Load municipalities and barangays for the existing address
+      if (beneficiary.province) {
+        loadMunicipalities(beneficiary.province);
+        if (beneficiary.municipality) {
+          loadBarangays(beneficiary.province, beneficiary.municipality);
+        }
+      }
     }
-  }, [beneficiary]);
+  }, [beneficiary, loadMunicipalities, loadBarangays]);
 
   const handleInputChange = (e) => {
     const { name, value, files } = e.target;
@@ -242,6 +250,20 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
         ...prev,
         [name]: value
       }));
+      
+      // Handle cascading dropdowns
+      if (name === 'province') {
+        resetMunicipalities();
+        resetBarangays();
+        if (value) {
+          loadMunicipalities(value);
+        }
+      } else if (name === 'municipality') {
+        resetBarangays();
+        if (value && formData.province) {
+          loadBarangays(formData.province, value);
+        }
+      }
     }
 
     // Clear error for this field
@@ -268,8 +290,10 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
     // Required fields validation (excluding non-editable fields)
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.province) newErrors.province = 'Province is required';
+    if (!formData.municipality) newErrors.municipality = 'Municipality is required';
+    if (!formData.barangay) newErrors.barangay = 'Barangay is required';
     if (!formData.purok.trim()) newErrors.purok = 'Purok is required';
-    if (!formData.barangay.trim()) newErrors.barangay = 'Barangay is required';
     if (!formData.gender) newErrors.gender = 'Gender is required';
     if (!formData.birthDate) newErrors.birthDate = 'Birth date is required';
     if (!formData.maritalStatus) newErrors.maritalStatus = 'Marital status is required';
@@ -566,53 +590,53 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
               Address Information
             </h3>
             
+            {/* Address Error Display */}
+            {addressError && (
+              <div style={{
+                backgroundColor: '#f8d7da',
+                color: '#721c24',
+                padding: '10px',
+                borderRadius: '4px',
+                marginBottom: '1rem',
+                border: '1px solid #f5c6cb',
+                fontSize: '11px'
+              }}>
+                {addressError}
+              </div>
+            )}
+            
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={styles.label}>
-                  Province *
-                </label>
-                <input
-                  type="text"
-                  name="province"
-                  value={formData.province}
-                  readOnly
-                  style={{
-                    ...styles.input,
-                    border: '1px solid var(--gray)',
-                    backgroundColor: '#f8f9fa',
-                    color: 'var(--black)',
-                    cursor: 'not-allowed'
-                  }}
-                  tabIndex={-1}
-                />
-              </div>
-              <div>
-                <label style={styles.label}>
-                  Municipality *
-                </label>
-                <input
-                  type="text"
-                  name="municipality"
-                  value={formData.municipality}
-                  readOnly
-                  style={{
-                    ...styles.input,
-                    border: '1px solid var(--gray)',
-                    backgroundColor: '#f8f9fa',
-                    color: 'var(--black)',
-                    cursor: 'not-allowed'
-                  }}
-                  tabIndex={-1}
-                />
-              </div>
+              <SelectField
+                name="province"
+                label="Province"
+                value={formData.province}
+                onChange={handleInputChange}
+                options={provinces}
+                required
+                error={errors.province}
+                disabled={addressLoading}
+              />
+              <SelectField
+                name="municipality"
+                label="Municipality"
+                value={formData.municipality}
+                onChange={handleInputChange}
+                options={municipalities}
+                required
+                error={errors.municipality}
+                disabled={addressLoading || !formData.province}
+                placeholder={formData.province ? 'Select municipality' : 'Select province first'}
+              />
               <SelectField
                 name="barangay"
                 label="Barangay"
                 value={formData.barangay}
                 onChange={handleInputChange}
-                options={options.barangays}
+                options={barangays}
                 required
                 error={errors.barangay}
+                disabled={addressLoading || !formData.municipality}
+                placeholder={formData.municipality ? 'Select barangay' : 'Select municipality first'}
               />
               <InputField
                 name="purok"
