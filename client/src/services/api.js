@@ -112,6 +112,7 @@ export const seedlingsAPI = {
 // Crop Status API
 export const cropStatusAPI = {
   getAll: async () => apiRequest('/crop-status'),
+  getById: async (id) => apiRequest(`/crop-status/${id}`),
   create: async (record) => {
     const formData = new FormData();
     formData.append('surveyDate', record.surveyDate);

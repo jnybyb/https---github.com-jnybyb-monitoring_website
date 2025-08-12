@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { beneficiariesAPI, farmPlotsAPI } from '../../../services/api';
 import AddFarmPlotModal from './AddFarmPlotModal';
+import AlertModal from '../../ui/AlertModal';
 
 // Fix for default markers in react-leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -119,7 +120,8 @@ const MapMonitoring = () => {
   const [loadingBeneficiaries, setLoadingBeneficiaries] = useState(false);
   const [farmPlots, setFarmPlots] = useState([]); // Store farm plots data
   const [loadingFarmPlots, setLoadingFarmPlots] = useState(false);
-  const [mapStyle, setMapStyle] = useState('satellite'); // Current map style
+  const [isCreatingPlot, setIsCreatingPlot] = useState(false); // Loading state for plot creation
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Success modal state
 
   const styles = {
     container: {
@@ -134,11 +136,12 @@ const MapMonitoring = () => {
       overflow: 'hidden'
     },
     detailsPanel: {
-      width: '12.5%', // 1/8 of the main content
-      minWidth: '250px',
+      width: '320px',
+      minWidth: '300px',
+      maxWidth: '350px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '0.5rem'
+      gap: '1rem'
     },
     mapPanel: {
       flex: 1, // Takes the remaining space (7/8)
@@ -184,33 +187,18 @@ const MapMonitoring = () => {
       gap: '0.75rem'
     },
     controlButton: {
-      padding: '0.75rem 1rem',
+      padding: '0.875rem 1.25rem',
       backgroundColor: '#2d7c4a',
       color: 'white',
       border: 'none',
-      borderRadius: '6px',
+      borderRadius: '8px',
       cursor: 'pointer',
-      fontSize: '0.85rem',
+      fontSize: '0.9rem',
       fontWeight: '500',
       transition: 'background-color 0.2s',
       width: '100%'
     },
-    mapStyleButton: {
-      padding: '0.5rem 0.75rem',
-      backgroundColor: '#6c757d',
-      color: 'white',
-      border: 'none',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '0.75rem',
-      fontWeight: '500',
-      transition: 'background-color 0.2s',
-      width: '100%',
-      marginBottom: '0.5rem'
-    },
-    activeMapStyle: {
-      backgroundColor: '#2d7c4a'
-    },
+    // Removed map style buttons
     mapContainer: {
       flex: 1,
       backgroundColor: 'white',
@@ -230,16 +218,20 @@ const MapMonitoring = () => {
     },
     statsPanel: {
       backgroundColor: 'white',
-      padding: '1rem',
+      padding: '1.25rem',
       borderRadius: '8px',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      border: '1px solid #e8f5e8'
+      border: '1px solid #e8f5e8',
+      display: 'flex',
+      flexDirection: 'column',
+      flex: 1,
+      minHeight: 0
     },
     statItem: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: '0.5rem 0',
+      padding: '0.75rem 0',
       borderBottom: '1px solid #f0f0f0'
     },
     statLabel: {
@@ -251,6 +243,86 @@ const MapMonitoring = () => {
       color: '#2c5530',
       fontSize: '0.9rem',
       fontWeight: '600'
+    },
+    plotsListPanel: {
+      marginTop: '1rem',
+      paddingTop: '1rem',
+      borderTop: '1px solid #f0f0f0'
+    },
+    plotsList: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.5rem'
+    },
+    plotsListContainer: {
+      flex: 1,
+      overflowY: 'auto',
+      paddingRight: '0.5rem',
+      marginTop: '1rem',
+      borderTop: '1px solid #f0f0f0',
+      paddingTop: '1rem',
+      minHeight: 0
+    },
+    plotItem: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '1rem',
+      backgroundColor: '#f8f9fa',
+      borderRadius: '8px',
+      border: '1px solid #e8f5e8',
+      marginBottom: '0.75rem'
+    },
+    plotNumber: {
+      fontSize: '0.8rem',
+      fontWeight: '600',
+      color: '#2c5530',
+      minWidth: '50px'
+    },
+    farmerInfo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.75rem',
+      flex: 1
+    },
+    farmerDetails: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.3rem'
+    },
+    farmerName: {
+      fontSize: '0.8rem',
+      fontWeight: '500',
+      color: '#343a40'
+    },
+    beneficiaryId: {
+      fontSize: '0.65rem',
+      color: '#6c757d'
+    },
+    plotActions: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: '30px'
+    },
+    threeDotsButton: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '1.1rem',
+      color: '#6c757d',
+      padding: '0.25rem',
+      borderRadius: '4px',
+      transition: 'all 0.2s',
+      width: '24px',
+      height: '24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      ':hover': {
+        backgroundColor: '#f0f0f0',
+        color: '#2d7c4a'
+      }
     }
   };
 
@@ -309,7 +381,12 @@ const MapMonitoring = () => {
 
   // Handle submit from AddFarmPlotModal
   const handleAddFarmPlot = async (data) => {
+    if (isCreatingPlot) return; // Prevent multiple submissions
+    
     try {
+      setIsCreatingPlot(true);
+      console.log('Creating farm plot with data:', data);
+      
       // Prepare the data for the backend
       const farmPlotData = {
         beneficiaryId: data.beneficiaryId,
@@ -318,15 +395,35 @@ const MapMonitoring = () => {
         coordinates: data.coordinates
       };
 
+      console.log('Sending farm plot data to server:', farmPlotData);
+      
       // Save to backend
       const newPlot = await farmPlotsAPI.create(farmPlotData);
       
+      console.log('Server response for new plot:', newPlot);
+      console.log('Response type:', typeof newPlot);
+      console.log('Response keys:', Object.keys(newPlot || {}));
+      
+      // Validate the response has required fields
+      if (!newPlot || !newPlot.id || !newPlot.coordinates) {
+        console.error('Invalid plot response:', newPlot);
+        throw new Error('Invalid response from server: missing required fields');
+      }
+      
       // Add to local state
-      setFarmPlots(prev => [...prev, newPlot]);
+      const updatedPlots = [...farmPlots, newPlot];
+      console.log('Updated plots array:', updatedPlots);
+      setFarmPlots(updatedPlots);
       console.log('Added farm plot with boundaries and corner markers:', newPlot);
+      
+      // Show success modal
+      setShowSuccessModal(true);
+      
     } catch (error) {
       console.error('Error creating farm plot:', error);
-      alert('Failed to create farm plot: ' + error.message);
+      alert('Failed to create farm plot: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsCreatingPlot(false);
     }
   };
 
@@ -336,6 +433,21 @@ const MapMonitoring = () => {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
+  // Handle plot actions (edit/delete)
+  const handlePlotActions = (plot, index) => {
+    const action = prompt(`Plot #${index + 1} - ${plot.beneficiaryName}\n\nChoose action:\n1. Edit\n2. Delete\n\nEnter 1 or 2:`);
+    
+    if (action === '1') {
+      alert('Edit functionality coming soon!');
+    } else if (action === '2') {
+      if (confirm(`Are you sure you want to delete Plot #${index + 1}?`)) {
+        // Remove from local state
+        setFarmPlots(prev => prev.filter((_, i) => i !== index));
+        alert('Plot deleted successfully!');
+      }
+    }
+  };
+
   return (
     <div style={styles.container}>
       {/* Header Section */}
@@ -343,9 +455,8 @@ const MapMonitoring = () => {
         <h2 style={styles.title}>Map Monitoring</h2>
         <p style={styles.subtitle}>Real-time location monitoring</p>
       </div>
-      {/* Content Section - Map and Details side by side */}
+      {/* Map and Details Section */}
       <div style={{ display: 'flex', flexDirection: 'row', gap: '1.5rem', flex: 1 }}>
-        {/* Left Panel - Map (7/8 width) */}
         <div style={styles.mapPanel}>
           <div style={styles.mapContainer}>
             <MapContainer 
@@ -355,53 +466,63 @@ const MapMonitoring = () => {
               scrollWheelZoom={true}
             >
               <TileLayer
-                attribution={mapLayers[mapStyle].attribution}
-                url={mapLayers[mapStyle].url}
+                attribution={mapLayers.satellite.attribution}
+                url={mapLayers.satellite.url}
               />
 
               {/* Farm Plot Boundaries and Corner Markers */}
               {farmPlots.map((plot, index) => {
+                // Defensive check to prevent crashes
+                if (!plot || !plot.coordinates || !Array.isArray(plot.coordinates) || plot.coordinates.length === 0) {
+                  console.warn('Invalid plot data:', plot);
+                  return null;
+                }
+                
                 const centerPoint = calculatePolygonCenter(plot.coordinates);
                 
                 return (
-                  <React.Fragment key={plot.id}>
+                  <React.Fragment key={plot.id || `plot-${index}`}>
                     {/* Plot Boundary Polygon */}
                     <Polygon
                       positions={plot.coordinates.map(coord => [parseFloat(coord.lat), parseFloat(coord.lng)])}
-                pathOptions={{
-                        color: plot.color,
-                        fillColor: plot.color,
+                      pathOptions={{
+                        color: plot.color || '#2d7c4a',
+                        fillColor: plot.color || '#2d7c4a',
                         fillOpacity: 0.3,
                         weight: 2
-                }}
-              >
-                <Popup>
+                      }}
+                    >
+                      <Popup>
                         <div>
-                          <b>{plot.beneficiaryName}</b><br />
+                          <b>{plot.beneficiaryName || 'Unknown Beneficiary'}</b><br />
                           <small>Plot #{index + 1}</small><br />
-                          <small>{plot.address}</small><br />
-                          <small>Boundary Points: {plot.coordinates.length}</small>
+                          <small>{plot.address || 'Address not available'}</small>
                         </div>
                       </Popup>
                     </Polygon>
 
                     {/* Corner Markers */}
-                    {plot.coordinates.map((coord, coordIndex) => (
-                      <Marker
-                        key={`${plot.id}-corner-${coordIndex}`}
-                        position={[parseFloat(coord.lat), parseFloat(coord.lng)]}
-                        icon={createCornerMarkerIcon(plot.color)}
-                      >
-                        <Popup>
-                          <div>
-                            <b>Corner Point {coordIndex + 1}</b><br />
-                            <small>{plot.beneficiaryName}</small><br />
-                            <small>Lat: {coord.lat}</small><br />
-                            <small>Lng: {coord.lng}</small>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    ))}
+                    {plot.coordinates.map((coord, coordIndex) => {
+                      if (!coord || coord.lat === undefined || coord.lng === undefined) {
+                        return null;
+                      }
+                      return (
+                        <Marker
+                          key={`${plot.id || index}-corner-${coordIndex}`}
+                          position={[parseFloat(coord.lat), parseFloat(coord.lng)]}
+                          icon={createCornerMarkerIcon(plot.color || '#2d7c4a')}
+                        >
+                          <Popup>
+                            <div>
+                              <b>Corner Point {coordIndex + 1}</b><br />
+                              <small>{plot.beneficiaryName || 'Unknown Beneficiary'}</small><br />
+                              <small>Lat: {coord.lat}</small><br />
+                              <small>Lng: {coord.lng}</small>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      );
+                    })}
 
                     {/* Location Marker with Beneficiary Profile at Center */}
                     {centerPoint && (
@@ -411,26 +532,53 @@ const MapMonitoring = () => {
                         icon={createLocationMarkerIcon(plot.color, plot.beneficiaryName)}
                       >
                         <Popup>
-                          <div style={{ minWidth: '200px' }}>
+                          <div style={{ minWidth: '250px' }}>
                             <div style={{ 
                               borderBottom: '2px solid #2d7c4a', 
                               paddingBottom: '8px', 
                               marginBottom: '8px' 
                             }}>
-                              <b style={{ color: '#2d7c4a', fontSize: '14px' }}>
+                              <b style={{ color: '#2d7c4a', fontSize: '16px' }}>
                                 {plot.beneficiaryName}
                               </b>
                             </div>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                              <div><strong>Plot #{index + 1}</strong></div>
-                              <div>{plot.address}</div>
-                              <div style={{ marginTop: '8px' }}>
-                                <small>Boundary Points: {plot.coordinates.length}</small><br />
-                                <small>Center: {centerPoint.lat.toFixed(6)}, {centerPoint.lng.toFixed(6)}</small>
+                            <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.4' }}>
+                              <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '12px', 
+                                marginBottom: '12px' 
+                              }}>
+                                <div style={{
+                                  width: '48px',
+                                  height: '48px',
+                                  backgroundColor: plot.color || '#2d7c4a',
+                                  borderRadius: '50%',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '18px',
+                                  fontWeight: 'bold',
+                                  border: '3px solid #e8f5e8'
+                                }}>
+                                  {plot.beneficiaryName ? 
+                                    plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
+                                    '??'
+                                  }
+                                </div>
+                                <div>
+                                  <div style={{ marginBottom: '6px' }}>
+                                    <span style={{ fontWeight: '500', color: '#343a40' }}>Beneficiary ID:</span> {plot.beneficiaryId}
+                                  </div>
+                                  <div>
+                                    <span style={{ fontWeight: '500', color: '#343a40' }}>Address:</span> {plot.address}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
-                </Popup>
+                        </Popup>
                       </Marker>
                     )}
                   </React.Fragment>
@@ -441,47 +589,55 @@ const MapMonitoring = () => {
             </MapContainer>
           </div>
         </div>
-        {/* Right Panel - Details (1/8 width) */}
+        {/* Details Panel */}
         <div style={styles.detailsPanel}>
-          <div style={styles.infoPanel}>
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '0.5rem', color: '#2c5530' }}>
-                Map Style
-          </div>
-              <button 
-                style={{ 
-                  ...styles.mapStyleButton, 
-                  ...(mapStyle === 'satellite' ? styles.activeMapStyle : {})
-                }}
-                onClick={() => setMapStyle('satellite')}
-              >
-                Satellite
-              </button>
-            <button 
-                style={{ 
-                  ...styles.mapStyleButton, 
-                  ...(mapStyle === 'terrain' ? styles.activeMapStyle : {})
-                }}
-                onClick={() => setMapStyle('terrain')}
-              >
-                Terrain
-            </button>
-            <button 
-                style={{ 
-                  ...styles.mapStyleButton, 
-                  ...(mapStyle === 'street' ? styles.activeMapStyle : {})
-                }}
-                onClick={() => setMapStyle('street')}
-              >
-                Street
-              </button>
+          {/* Add Farm Plot Button - No container */}
+          <button 
+            style={{ ...styles.controlButton, width: '100%', marginBottom: '1rem' }}
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Farm/Plot Location
+          </button>
+          
+          {/* Plots Summary and List - Combined Container */}
+          <div style={styles.statsPanel}>
+            <div style={styles.statItem}>
+              <span style={styles.statLabel}>Plots</span>
+              <span style={styles.statValue}>{farmPlots?.length || 0}</span>
             </div>
-            <button 
-              style={{ ...styles.controlButton, width: '100%' }}
-              onClick={() => setShowAddModal(true)}
-            >
-              Add Farm/Plot Location
-            </button>
+            
+            {/* Plots List - Inside the same container */}
+            {farmPlots && farmPlots.length > 0 && (
+              <div style={styles.plotsListContainer}>
+                {farmPlots.map((plot, index) => (
+                  <div key={plot.id || index} style={styles.plotItem}>
+                    <div style={styles.plotNumber}>Plot #{index + 1}</div>
+                    <div style={styles.farmerInfo}>
+                      <div style={styles.farmerAvatar}>
+                        {plot.beneficiaryName ? 
+                          plot.beneficiaryName.split(' ').map(word => word.charAt(0)).join('').toUpperCase().slice(0, 2) : 
+                          '??'
+                        }
+                      </div>
+                      <div style={styles.farmerDetails}>
+                        <div style={styles.farmerName}>{plot.beneficiaryName || 'Unknown Farmer'}</div>
+                        <div style={styles.beneficiaryId}>ID: {plot.beneficiaryId || 'N/A'}</div>
+                      </div>
+
+                    </div>
+                    <div style={styles.plotActions}>
+                      <button 
+                        style={styles.threeDotsButton}
+                        onClick={() => handlePlotActions(plot, index)}
+                        title="Plot actions"
+                      >
+                        ⋮
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -491,6 +647,19 @@ const MapMonitoring = () => {
         onClose={() => setShowAddModal(false)}
         onSubmit={handleAddFarmPlot}
         beneficiaries={beneficiaries}
+        isLoading={isCreatingPlot}
+      />
+      
+      {/* Success Modal */}
+      <AlertModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        type="success"
+        title="Success!"
+        message="Farm Plot has been saved successfully."
+        confirmText="OK"
+        autoClose={true}
+        autoCloseDelay={3000}
       />
     </div>
   );

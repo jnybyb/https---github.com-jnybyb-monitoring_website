@@ -213,7 +213,7 @@ const detectCoordinateFormat = (coordString) => {
   return 'unknown';
 };
 
-function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries }) {
+function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading = false }) {
   const [selectedId, setSelectedId] = useState('');
   const [coordinates, setCoordinates] = useState([
     { lat: '', lng: '' },
@@ -299,6 +299,9 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    if (isLoading) return; // Prevent submission while loading
+    
     const newErrors = {};
     
     if (!selectedId) {
@@ -437,9 +440,21 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries }) {
         </div>
 
         <div style={buttonRowStyle}>
-          <button type="button" style={cancelBtnStyle} onClick={onClose}>Cancel</button>
-          <button type="submit" style={saveBtnStyle}>Save Plot</button>
-      </div>
+          <button type="button" style={cancelBtnStyle} onClick={onClose} disabled={isLoading}>
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            style={{ 
+              ...saveBtnStyle, 
+              opacity: isLoading ? 0.6 : 1,
+              cursor: isLoading ? 'not-allowed' : 'pointer'
+            }} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Saving...' : 'Save Plot'}
+          </button>
+        </div>
       </form>
     </div>
   );

@@ -1,8 +1,8 @@
 import React from 'react';
 import { HiOutlineTrash } from "react-icons/hi2";
 
-const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => {
-  if (!isOpen || !beneficiary) return null;
+const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
+  if (!isOpen || !record) return null;
 
   const styles = {
     overlay: {
@@ -60,22 +60,22 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
       marginBottom: '1.5rem',
       lineHeight: '1.5'
     },
-    beneficiaryInfo: {
+    recordInfo: {
       backgroundColor: '#f8f9fa',
       padding: '1rem',
       borderRadius: '6px',
       marginBottom: '1.5rem',
       border: '1px solid #e9ecef'
     },
-    beneficiaryId: {
+    surveyDate: {
       fontWeight: '600',
       color: 'var(--emerald-green)',
-      fontSize: '18px',
+      fontSize: '16px',
       marginBottom: '0.5rem'
     },
-    beneficiaryName: {
+    recordDetails: {
       color: 'var(--black)',
-      fontSize: '16px',
+      fontSize: '14px',
       fontWeight: '500'
     },
     warning: {
@@ -114,7 +114,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
   };
 
   const handleConfirm = () => {
-    onConfirm(beneficiary);
+    onConfirm(record);
   };
 
   return (
@@ -122,7 +122,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
       <div style={styles.modal}>
         {/* Modal Header */}
         <div style={styles.header}>
-          <h2 style={styles.title}>Delete Beneficiary</h2>
+          <h2 style={styles.title}>Delete Crop Status Record</h2>
         </div>
 
         {/* Modal Content */}
@@ -134,54 +134,30 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
 
           {/* Confirmation Message */}
           <p style={styles.message}>
-            Are you sure you want to delete this beneficiary?
+            Are you sure you want to delete this crop status record?
           </p>
 
-          {/* Beneficiary Information */}
-          <div style={styles.beneficiaryInfo}>
-            <div style={styles.beneficiaryId}>
-              {beneficiary.beneficiaryId}
+          {/* Record Information */}
+          <div style={styles.recordInfo}>
+            <div style={styles.surveyDate}>
+              {new Date(record.surveyDate).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              })}
             </div>
-            <div style={styles.beneficiaryName}>
-              {beneficiary.firstName} {beneficiary.middleName} {beneficiary.lastName}
+            <div style={styles.recordDetails}>
+              <div>Surveyer: {record.surveyer}</div>
+              <div>Beneficiary ID: {record.beneficiaryId}</div>
+              <div>Alive Crops: {record.aliveCrops}</div>
+              <div>Dead Crops: {record.deadCrops}</div>
             </div>
           </div>
 
           {/* Warning Message */}
           <p style={styles.warning}>
-            This action cannot be undone. All beneficiary data will be permanently deleted.
+            This action cannot be undone. All crop status data will be permanently deleted.
           </p>
-          
-          {/* Related Records Warning */}
-          <div style={{
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffeaa7',
-            borderRadius: '6px',
-            padding: '1rem',
-            marginBottom: '1.5rem'
-          }}>
-            <p style={{
-              color: '#856404',
-              fontSize: '12px',
-              margin: '0',
-              fontWeight: '500',
-              textAlign: 'left'
-            }}>
-              <strong>⚠️ Related records will also be deleted:</strong>
-            </p>
-            <ul style={{
-              color: '#856404',
-              fontSize: '11px',
-              margin: '0.5rem 0 0 0',
-              paddingLeft: '1.5rem',
-              textAlign: 'left'
-            }}>
-              <li>Seedling records</li>
-              <li>Crop status surveys</li>
-              <li>Farm plot coordinates</li>
-              <li>Uploaded pictures</li>
-            </ul>
-          </div>
 
           {/* Action Buttons */}
           <div style={styles.buttons}>
@@ -213,7 +189,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
               onMouseEnter={(e) => e.target.style.backgroundColor = '#dc3545'}
               onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--red)'}
             >
-              Delete Beneficiary
+              Delete Record
             </button>
           </div>
         </div>
@@ -222,4 +198,4 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
   );
 };
 
-export default DeleteBeneficiaryModal; 
+export default DeleteCropStatusModal;

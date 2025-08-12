@@ -260,9 +260,25 @@ const PersonalDetailsTable = () => {
   // Handle delete confirmation
   const handleDeleteConfirm = async (beneficiary) => {
     try {
-      await beneficiariesAPI.delete(beneficiary.id);
+      const response = await beneficiariesAPI.delete(beneficiary.id);
       await fetchBeneficiaries(); // Refresh the data
-      setAlertModal(getAlertConfig('success', 'Success', 'Beneficiary was deleted successfully.'));
+      
+      // Create a detailed success message
+      let successMessage = 'Beneficiary deleted successfully.';
+      if (response && response.deletedRecords) {
+        const { seedlings, cropStatus, farmPlots } = response.deletedRecords;
+        const details = [];
+        if (seedlings > 0) details.push(`${seedlings} seedling record${seedlings > 1 ? 's' : ''}`);
+        if (cropStatus > 0) details.push(`${cropStatus} crop status record${cropStatus > 1 ? 's' : ''}`);
+        if (farmPlots > 0) details.push(`${farmPlots} farm plot${farmPlots > 1 ? 's' : ''}`);
+        
+        if (details.length > 0) {
+          successMessage = `Beneficiary and related records deleted: ${details.join(', ')}.`;
+        }
+      }
+      
+      setAlertModal(getAlertConfig('success', 'Success', successMessage));
+      
       // Close delete modal after showing notification
       setTimeout(() => {
         setIsDeleteModalOpen(false);

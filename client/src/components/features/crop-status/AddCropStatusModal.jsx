@@ -4,8 +4,9 @@ import Button from '../../ui/Buttons';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import { beneficiariesAPI, handleAPIError } from '../../../services/api';
 
-const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
+const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false }) => {
   const [formData, setFormData] = useState({
+    id: '', // Add id field for edit operations
     surveyDate: '',
     surveyer: '',
     beneficiaryId: '',
@@ -38,6 +39,21 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
           picture: b.picture || ''
         }));
         setBeneficiaries(mapped);
+        
+        // Set beneficiary name in edit mode
+        if (isEdit && record && formData.beneficiaryId) {
+          const beneficiary = mapped.find(b => b.beneficiaryId === formData.beneficiaryId);
+          if (beneficiary) {
+            console.log('Found beneficiary for edit:', beneficiary); // Debug log
+            setFormData(prev => ({
+              ...prev,
+              beneficiaryName: beneficiary.fullName,
+              beneficiaryPicture: beneficiary.picture
+            }));
+          } else {
+            console.log('Beneficiary not found for ID:', formData.beneficiaryId); // Debug log
+          }
+        }
       } catch (err) {
         const e = handleAPIError(err);
         console.error('Error fetching beneficiaries:', e.message);
@@ -45,21 +61,55 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
       }
     };
     if (isOpen) fetchBeneficiaries();
-  }, [isOpen]);
+  }, [isOpen, isEdit, record, formData.beneficiaryId]);
 
   useEffect(() => {
     if (!isOpen) {
-      setFormData({ surveyDate: '', surveyer: '', beneficiaryId: '', beneficiaryName: '', beneficiaryPicture: '', aliveCrops: '', deadCrops: '', pictures: [] });
+      setFormData({ id: '', surveyDate: '', surveyer: '', beneficiaryId: '', beneficiaryName: '', beneficiaryPicture: '', aliveCrops: '', deadCrops: '', pictures: [] });
       setSelectedFiles([]);
       setErrors({});
     }
   }, [isOpen]);
+
+  // Load record data when editing
+  useEffect(() => {
+    if (isEdit && record && isOpen) {
+      console.log('Loading record data for edit:', record); // Debug log
+      setFormData({
+        id: record.id || '',
+        surveyDate: record.surveyDate ? new Date(record.surveyDate).toISOString().split('T')[0] : '',
+        surveyer: record.surveyer || '',
+        beneficiaryId: record.beneficiaryId || '',
+        beneficiaryName: '', // Will be set after beneficiaries load
+        beneficiaryPicture: '',
+        aliveCrops: record.aliveCrops?.toString() || '',
+        deadCrops: record.deadCrops?.toString() || '0',
+        pictures: record.pictures || []
+      });
+      // Handle existing pictures properly for edit mode
+      if (record.pictures && Array.isArray(record.pictures)) {
+        setSelectedFiles(record.pictures);
+      } else {
+        setSelectedFiles([]);
+      }
+      console.log('Form data set for edit:', {
+        id: record.id,
+        surveyDate: record.surveyDate,
+        surveyer: record.surveyer,
+        beneficiaryId: record.beneficiaryId,
+        aliveCrops: record.aliveCrops,
+        deadCrops: record.deadCrops,
+        pictures: record.pictures
+      }); // Debug log
+    }
+  }, [isEdit, record, isOpen]);
 
   const validateForm = () => {
     const newErrors = {};
     if (!formData.surveyDate) newErrors.surveyDate = 'Survey date is required';
     if (!formData.surveyer) newErrors.surveyer = 'Surveyer name is required';
     if (!formData.beneficiaryName) newErrors.beneficiaryName = 'Beneficiary is required';
+    if (isEdit && !formData.id) newErrors.id = 'Record ID is required for updates';
     if (!formData.aliveCrops || formData.aliveCrops <= 0) newErrors.aliveCrops = 'Number of alive crops must be greater than 0';
     if (formData.deadCrops === '' || formData.deadCrops < 0) newErrors.deadCrops = 'Number of dead crops cannot be negative';
     setErrors(newErrors);
@@ -99,7 +149,33 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
     if (!validateForm()) return;
     setLoading(true);
     try {
-      const submitData = { ...formData, aliveCrops: parseInt(formData.aliveCrops), deadCrops: parseInt(formData.deadCrops || 0) };
+      const submitData = { 
+        ...formData, 
+        aliveCrops: parseInt(formData.aliveCrops), 
+        deadCrops: parseInt(formData.deadCrops || 0) 
+      };
+      
+      // Ensure ID is included for edit operations
+      if (isEdit && formData.id) {
+        submitData.id = formData.id;
+      }
+      
+      // Handle pictures properly for edit mode
+      if (isEdit) {
+        // For edit mode, only send new files if they were selected
+        if (selectedFiles.length > 0 && selectedFiles[0] instanceof File) {
+          submitData.pictures = selectedFiles;
+        } else {
+          // Keep existing pictures if no new files selected
+          // Don't include pictures in the update if no new files were selected
+          delete submitData.pictures;
+        }
+      } else {
+        // For add mode, send selected files
+        submitData.pictures = selectedFiles;
+      }
+      
+      console.log('Submitting crop status data:', submitData); // Debug log
       await onSubmit(submitData);
       onClose();
     } catch (error) {
@@ -126,7 +202,7 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e8f5e8', paddingBottom: '0.75rem' }}>
           <h2 style={{ color: '#2c5530', margin: 0, fontSize: '1.125rem', fontWeight: '600' }}>
-            Add New Crop Status Record
+            {isEdit ? 'Edit Crop Status Record' : 'Add New Crop Status Record'}
           </h2>
           <button onClick={handleClose} disabled={loading} style={{ background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '1.25rem', color: '#6c757d', padding: '0.25rem', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => !loading && (e.target.style.color = '#dc3545')} onMouseOut={(e) => !loading && (e.target.style.color = '#6c757d')}>
             <IoClose />
@@ -227,7 +303,7 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit }) => {
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e8f5e8' }}>
           <Button type="secondary" size="medium" onClick={handleClose} disabled={loading}>Cancel</Button>
           <Button type="primary" size="medium" onClick={handleSubmit} disabled={loading}>
-            {loading ? (<div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}><LoadingSpinner color="white" />Saving...</div>) : ('Add Record')}
+            {loading ? (<div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}><LoadingSpinner color="white" />Saving...</div>) : (isEdit ? 'Update Record' : 'Add Record')}
           </Button>
         </div>
       </div>

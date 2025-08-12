@@ -12,7 +12,8 @@ import Button from '../../ui/Buttons';
 import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
-import { cropStatusAPI, handleAPIError } from '../../../services/api';
+import DeleteCropStatusModal from '../../features/crop-status/DeleteCropStatusModal';
+import { cropStatusAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
 
 // Inline NoDataIcon component
 const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
@@ -122,6 +123,11 @@ const CropStatusTable = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [recordToDelete, setRecordToDelete] = useState(null);
+  const [beneficiaries, setBeneficiaries] = useState([]);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -134,6 +140,7 @@ const CropStatusTable = () => {
       setLoading(true);
       setError(null);
       const data = await cropStatusAPI.getAll();
+      console.log('Fetched crop status data:', data); // Debug log
       setCropStatusData(data || []);
     } catch (err) {
       const e = handleAPIError(err);
@@ -143,7 +150,19 @@ const CropStatusTable = () => {
     }
   };
 
-  useEffect(() => { fetchCropStatus(); }, []);
+  const loadBeneficiaries = async () => {
+    try {
+      const data = await beneficiariesAPI.getAll();
+      setBeneficiaries(data);
+    } catch (error) {
+      console.error('Error loading beneficiaries:', error);
+    }
+  };
+
+  useEffect(() => { 
+    fetchCropStatus(); 
+    loadBeneficiaries();
+  }, []);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -173,6 +192,11 @@ const CropStatusTable = () => {
   };
 
   const handleEditCropStatus = async (updatedRecord) => {
+    console.log('Updating crop status record:', updatedRecord); // Debug log
+    if (!updatedRecord.id) {
+      setAlertModal(getAlertConfig('error', 'Failed', 'Record ID is missing. Cannot update record.'));
+      return;
+    }
     await handleApiOperation(
       () => cropStatusAPI.update(updatedRecord.id, updatedRecord),
       'Crop status record has been updated successfully.',
@@ -199,14 +223,45 @@ const CropStatusTable = () => {
     }
   };
 
+  const handleEditModalClose = () => {
+    setIsEditModalOpen(false);
+    setSelectedRecord(null);
+  };
+
+  const handleEditModalSubmit = async (formData) => {
+    try {
+      await handleEditCropStatus(formData);
+      setIsEditModalOpen(false);
+      setSelectedRecord(null);
+    } catch (error) {
+      // handled
+    }
+  };
+
+  const handleDeleteModalClose = () => {
+    setIsDeleteModalOpen(false);
+    setRecordToDelete(null);
+  };
+
+  const handleDeleteConfirm = async (record) => {
+    try {
+      await handleDeleteCropStatus(record.id);
+      setIsDeleteModalOpen(false);
+      setRecordToDelete(null);
+    } catch (error) {
+      // handled
+    }
+  };
+
   const handleEditClick = (record) => {
-    console.log('Edit record:', record);
+    console.log('Edit clicked for record:', record); // Debug log
+    setSelectedRecord(record);
+    setIsEditModalOpen(true);
   };
 
   const handleDeleteClick = (record) => {
-    if (window.confirm('Are you sure you want to delete this crop status record? This action cannot be undone.')) {
-      handleDeleteCropStatus(record.id);
-    }
+    setRecordToDelete(record);
+    setIsDeleteModalOpen(true);
   };
 
   const formatCropStatusForDisplay = (record) => {
@@ -306,6 +361,23 @@ const CropStatusTable = () => {
       <AlertModal isOpen={alertModal.isOpen} onClose={() => setAlertModal({ ...alertModal, isOpen: false })} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={true} autoCloseDelay={3000} />
 
       <AddCropStatusModal isOpen={isAddModalOpen} onClose={handleAddModalClose} onSubmit={handleAddModalSubmit} />
+
+      {isEditModalOpen && selectedRecord && (
+        <AddCropStatusModal
+          isOpen={isEditModalOpen}
+          onClose={handleEditModalClose}
+          onSubmit={handleEditModalSubmit}
+          record={selectedRecord}
+          isEdit={true}
+        />
+      )}
+
+      <DeleteCropStatusModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleDeleteModalClose}
+        onConfirm={handleDeleteConfirm}
+        record={recordToDelete}
+      />
     </div>
   );
 };

@@ -175,9 +175,108 @@ app.put('/api/beneficiaries/:id', upload.single('picture'), async (req, res) => 
 
 app.delete('/api/beneficiaries/:id', async (req, res) => {
   try {
-    const [result] = await getPromisePool().query('DELETE FROM beneficiary_details WHERE id = ?', [req.params.id]);
-    res.json({ success: true, affectedRows: result.affectedRows });
+    // First, get the beneficiary details to find the beneficiary_id and picture
+    const [beneficiaryRows] = await getPromisePool().query('SELECT beneficiary_id, picture FROM beneficiary_details WHERE id = ?', [req.params.id]);
+    
+    if (beneficiaryRows.length === 0) {
+      return res.status(404).json({ error: 'Beneficiary not found' });
+    }
+    
+    const beneficiary = beneficiaryRows[0];
+    const beneficiaryId = beneficiary.beneficiary_id;
+    
+    // Start a transaction to ensure data consistency
+    const connection = await getPromisePool().getConnection();
+    await connection.beginTransaction();
+    
+    try {
+      // Verify beneficiary still exists before proceeding
+      const [verifyResult] = await connection.query('SELECT id FROM beneficiary_details WHERE id = ?', [req.params.id]);
+      if (verifyResult.length === 0) {
+        throw new Error('Beneficiary record not found or already deleted');
+      }
+      
+      // Delete all related records first
+      
+      // 1. Delete seedling records
+      const [seedlingResult] = await connection.query('DELETE FROM seedling_records WHERE beneficiary_id = ?', [beneficiaryId]);
+      console.log(`Deleted ${seedlingResult.affectedRows} seedling records for beneficiary ${beneficiaryId}`);
+      
+      // 2. Delete crop status records
+      const [cropResult] = await connection.query('DELETE FROM crop_status WHERE beneficiary_id = ?', [beneficiaryId]);
+      console.log(`Deleted ${cropResult.affectedRows} crop status records for beneficiary ${beneficiaryId}`);
+      
+      // 3. Delete farm plots (this table has ON DELETE CASCADE, but we'll delete explicitly for consistency)
+      const [plotResult] = await connection.query('DELETE FROM farm_plots WHERE beneficiary_id = ?', [beneficiaryId]);
+      console.log(`Deleted ${plotResult.affectedRows} farm plots for beneficiary ${beneficiaryId}`);
+      
+      // 4. Finally, delete the beneficiary record
+      const [result] = await connection.query('DELETE FROM beneficiary_details WHERE id = ?', [req.params.id]);
+      
+      if (result.affectedRows === 0) {
+        throw new Error('Beneficiary record not found or already deleted');
+      }
+      
+      // Commit the transaction
+      await connection.commit();
+      
+      // Clean up uploaded picture file if it exists
+      if (beneficiary.picture) {
+        try {
+          // Handle both full paths and relative paths
+          let picturePath;
+          if (beneficiary.picture.startsWith('/uploads/')) {
+            picturePath = path.join(__dirname, 'uploads', path.basename(beneficiary.picture));
+          } else {
+            picturePath = beneficiary.picture;
+          }
+          
+          if (fs.existsSync(picturePath)) {
+            fs.unlinkSync(picturePath);
+            console.log(`Deleted picture file: ${picturePath}`);
+          } else {
+            console.log(`Picture file not found at: ${picturePath}`);
+          }
+        } catch (fileError) {
+          console.warn('Warning: Could not delete picture file:', fileError.message);
+          // Don't fail the entire operation if file deletion fails
+        }
+      }
+      
+      // Log the deletion summary
+      console.log(`Successfully deleted beneficiary ${beneficiaryId} and all related records`);
+      
+      res.json({ 
+        success: true, 
+        affectedRows: result.affectedRows,
+        deletedRecords: {
+          seedlings: seedlingResult.affectedRows,
+          cropStatus: cropResult.affectedRows,
+          farmPlots: plotResult.affectedRows,
+          beneficiary: result.affectedRows
+        },
+        message: 'Beneficiary and all related records deleted successfully'
+      });
+      
+    } catch (error) {
+      // Rollback transaction on error
+      try {
+        await connection.rollback();
+        console.log('Transaction rolled back due to error:', error.message);
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError.message);
+      }
+      throw error;
+    } finally {
+      try {
+        connection.release();
+      } catch (releaseError) {
+        console.error('Error releasing connection:', releaseError.message);
+      }
+    }
+    
   } catch (e) {
+    console.error('Error deleting beneficiary:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -256,12 +355,20 @@ app.delete('/api/seedlings/:id', async (req, res) => {
 // Crop Status routes (supports photo uploads)
 app.get('/api/crop-status', async (req, res) => {
   try {
-    const [rows] = await getPromisePool().query('SELECT * FROM crop_status ORDER BY survey_date DESC, created_at DESC');
+    const [rows] = await getPromisePool().query(`
+      SELECT cs.*, 
+             bd.first_name, bd.middle_name, bd.last_name, bd.picture as beneficiary_picture
+      FROM crop_status cs
+      JOIN beneficiary_details bd ON bd.beneficiary_id = cs.beneficiary_id
+      ORDER BY cs.survey_date DESC, cs.created_at DESC
+    `);
     const data = rows.map(r => ({
       id: r.id,
       surveyDate: r.survey_date,
       surveyer: r.surveyer,
       beneficiaryId: r.beneficiary_id,
+      beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      beneficiaryPicture: r.beneficiary_picture ? `/uploads/${path.basename(r.beneficiary_picture)}` : null,
       aliveCrops: r.alive_crops,
       deadCrops: r.dead_crops,
       pictures: Array.isArray(r.pictures) ? r.pictures : (r.pictures ? JSON.parse(r.pictures) : [])
@@ -272,10 +379,60 @@ app.get('/api/crop-status', async (req, res) => {
   }
 });
 
+app.get('/api/crop-status/:id', async (req, res) => {
+  try {
+    const [rows] = await getPromisePool().query(`
+      SELECT cs.*, 
+             bd.first_name, bd.middle_name, bd.last_name, bd.picture as beneficiary_picture
+      FROM crop_status cs
+      JOIN beneficiary_details bd ON bd.beneficiary_id = cs.beneficiary_id
+      WHERE cs.id = ?
+    `, [req.params.id]);
+    
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Crop status record not found' });
+    }
+    
+    const r = rows[0];
+    const data = {
+      id: r.id,
+      surveyDate: r.survey_date,
+      surveyer: r.surveyer,
+      beneficiaryId: r.beneficiary_id,
+      beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      beneficiaryPicture: r.beneficiary_picture ? `/uploads/${path.basename(r.beneficiary_picture)}` : null,
+      aliveCrops: r.alive_crops,
+      deadCrops: r.dead_crops,
+      pictures: Array.isArray(r.pictures) ? r.pictures : (r.pictures ? JSON.parse(r.pictures) : [])
+    };
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/crop-status', upload.array('pictures', 10), async (req, res) => {
   try {
     const body = req.body;
     const files = (req.files || []).map(f => path.basename(f.path));
+    
+    // Validate required fields and convert to proper types
+    if (!body.surveyDate || !body.surveyer || !body.beneficiaryId || body.aliveCrops === undefined || body.aliveCrops === null) {
+      return res.status(400).json({ error: 'Missing required fields: surveyDate, surveyer, beneficiaryId, or aliveCrops' });
+    }
+
+    // Convert numeric fields with proper validation
+    const aliveCrops = parseInt(body.aliveCrops);
+    const deadCrops = parseInt(body.deadCrops || 0);
+    
+    if (isNaN(aliveCrops) || aliveCrops < 0) {
+      return res.status(400).json({ error: 'Invalid aliveCrops value' });
+    }
+    
+    if (isNaN(deadCrops) || deadCrops < 0) {
+      return res.status(400).json({ error: 'Invalid deadCrops value' });
+    }
+    
     const sql = `INSERT INTO crop_status 
       (survey_date, surveyer, beneficiary_id, alive_crops, dead_crops, pictures)
       VALUES (?, ?, ?, ?, ?, ?)`;
@@ -283,8 +440,8 @@ app.post('/api/crop-status', upload.array('pictures', 10), async (req, res) => {
       body.surveyDate,
       body.surveyer,
       body.beneficiaryId,
-      Number(body.aliveCrops),
-      Number(body.deadCrops || 0),
+      aliveCrops,
+      deadCrops,
       JSON.stringify(files)
     ];
     const [result] = await getPromisePool().query(sql, params);
@@ -298,6 +455,42 @@ app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) =
   try {
     const body = req.body;
     const files = (req.files || []).map(f => path.basename(f.path));
+    const recordId = req.params.id;
+
+    console.log('Crop status update request - ID param:', recordId);
+    console.log('Crop status update request body:', body);
+    console.log('Files:', files);
+
+    // Validate ID parameter
+    if (!recordId || isNaN(parseInt(recordId))) {
+      console.log('Validation failed - invalid ID:', recordId);
+      return res.status(400).json({ error: 'Invalid record ID' });
+    }
+
+    // Validate required fields and convert to proper types
+    if (!body.surveyDate || !body.surveyer || !body.beneficiaryId || body.aliveCrops === undefined || body.aliveCrops === null) {
+      console.log('Validation failed - missing fields:', {
+        surveyDate: body.surveyDate,
+        surveyer: body.surveyer,
+        beneficiaryId: body.beneficiaryId,
+        aliveCrops: body.aliveCrops
+      });
+      return res.status(400).json({ error: 'Missing required fields: surveyDate, surveyer, beneficiaryId, or aliveCrops' });
+    }
+
+    // Convert numeric fields with proper validation
+    const aliveCrops = parseInt(body.aliveCrops);
+    const deadCrops = parseInt(body.deadCrops || 0);
+    
+    console.log('Parsed numeric values:', { aliveCrops, deadCrops });
+    
+    if (isNaN(aliveCrops) || aliveCrops < 0) {
+      return res.status(400).json({ error: 'Invalid aliveCrops value' });
+    }
+    
+    if (isNaN(deadCrops) || deadCrops < 0) {
+      return res.status(400).json({ error: 'Invalid deadCrops value' });
+    }
 
     // If new files uploaded, replace pictures; otherwise keep existing
     let setPictures = '';
@@ -305,14 +498,16 @@ app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) =
       body.surveyDate,
       body.surveyer,
       body.beneficiaryId,
-      Number(body.aliveCrops),
-      Number(body.deadCrops || 0)
+      aliveCrops,
+      deadCrops
     ];
     if (files.length > 0) {
       setPictures = ', pictures = ?';
       params.push(JSON.stringify(files));
     }
-    params.push(req.params.id);
+    params.push(recordId);
+
+    console.log('SQL params:', params);
 
     const sql = `UPDATE crop_status SET 
       survey_date = ?, surveyer = ?, beneficiary_id = ?, alive_crops = ?, dead_crops = ?${setPictures}
@@ -321,6 +516,7 @@ app.put('/api/crop-status/:id', upload.array('pictures', 10), async (req, res) =
     const [result] = await getPromisePool().query(sql, params);
     res.json({ success: true, affectedRows: result.affectedRows });
   } catch (e) {
+    console.error('Error updating crop status:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -334,6 +530,127 @@ app.delete('/api/crop-status/:id', async (req, res) => {
   }
 });
 
+// Farm Plots routes for Map Monitoring
+app.get('/api/farm-plots', async (req, res) => {
+  try {
+    const [rows] = await getPromisePool().query(
+      `SELECT fp.id,
+              fp.beneficiary_id AS beneficiaryId,
+              fp.plot_name AS plotName,
+              fp.color,
+              fp.coordinates,
+              bd.first_name, bd.middle_name, bd.last_name,
+              bd.purok, bd.barangay, bd.municipality, bd.province
+       FROM farm_plots fp
+       JOIN beneficiary_details bd ON bd.beneficiary_id = fp.beneficiary_id
+       ORDER BY fp.created_at DESC`
+    );
+
+    const data = rows.map(r => ({
+      id: r.id,
+      beneficiaryId: r.beneficiaryId,
+      plotName: r.plotName,
+      color: r.color || '#2d7c4a',
+      coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
+      beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ',')
+    }));
+
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/farm-plots/:id', async (req, res) => {
+  try {
+    const [rows] = await getPromisePool().query(
+      'SELECT * FROM farm_plots WHERE id = ?',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const r = rows[0];
+    res.json({
+      id: r.id,
+      beneficiaryId: r.beneficiary_id,
+      plotName: r.plot_name,
+      color: r.color || '#2d7c4a',
+      coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]')
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/farm-plots', async (req, res) => {
+  try {
+    const body = req.body;
+    const sql = `INSERT INTO farm_plots (beneficiary_id, plot_name, color, coordinates)
+                 VALUES (?, ?, ?, ?)`;
+    const params = [
+      body.beneficiaryId,
+      body.plotName || 'Plot',
+      body.color || '#2d7c4a',
+      JSON.stringify(body.coordinates || [])
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    const [rows] = await getPromisePool().query(
+      `SELECT fp.id,
+              fp.beneficiary_id AS beneficiaryId,
+              fp.plot_name AS plotName,
+              fp.color,
+              fp.coordinates,
+              bd.first_name, bd.middle_name, bd.last_name,
+              bd.purok, bd.barangay, bd.municipality, bd.province
+       FROM farm_plots fp
+       JOIN beneficiary_details bd ON bd.beneficiary_id = fp.beneficiary_id
+       WHERE fp.id = ?`,
+      [result.insertId]
+    );
+    const r = rows[0];
+    const created = {
+      id: r.id,
+      beneficiaryId: r.beneficiaryId,
+      plotName: r.plotName,
+      color: r.color || '#2d7c4a',
+      coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
+      beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+      address: `${r.purok || ''}, ${r.barangay || ''}, ${r.municipality || ''}, ${r.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ',')
+    };
+    res.json(created);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/farm-plots/:id', async (req, res) => {
+  try {
+    const body = req.body;
+    const sql = `UPDATE farm_plots
+                 SET beneficiary_id = ?, plot_name = ?, color = ?, coordinates = ?
+                 WHERE id = ?`;
+    const params = [
+      body.beneficiaryId,
+      body.plotName || 'Plot',
+      body.color || '#2d7c4a',
+      JSON.stringify(body.coordinates || []),
+      req.params.id
+    ];
+    const [result] = await getPromisePool().query(sql, params);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/farm-plots/:id', async (req, res) => {
+  try {
+    const [result] = await getPromisePool().query('DELETE FROM farm_plots WHERE id = ?', [req.params.id]);
+    res.json({ success: true, affectedRows: result.affectedRows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 // Initialize database and start server
 const startServer = async () => {
   try {

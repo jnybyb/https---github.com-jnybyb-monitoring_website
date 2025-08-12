@@ -11,6 +11,7 @@ import Button from '../../ui/Buttons';
 import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddSeedlingRecordModal from './AddSeedlingRecordModal';
+import DeleteSeedlingModal from './DeleteSeedlingModal';
 import { seedlingsAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
 
 // Inline NoDataIcon component
@@ -128,8 +129,10 @@ const SeedlingRecordsTable = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [recordToDelete, setRecordToDelete] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -214,9 +217,8 @@ const SeedlingRecordsTable = () => {
   };
 
   const handleDeleteClick = (record) => {
-    if (window.confirm('Are you sure you want to delete this seedling record? This action cannot be undone.')) {
-      handleDeleteSeedlingRecord(record.id);
-    }
+    setRecordToDelete(record);
+    setIsDeleteModalOpen(true);
   };
 
   const handleAlertClose = () => {
@@ -224,8 +226,25 @@ const SeedlingRecordsTable = () => {
     setTimeout(() => {
       setIsModalOpen(false);
       setIsEditModalOpen(false);
+      setIsDeleteModalOpen(false);
       setSelectedRecord(null);
+      setRecordToDelete(null);
     }, 100);
+  };
+
+  const handleDeleteModalClose = () => {
+    setIsDeleteModalOpen(false);
+    setRecordToDelete(null);
+  };
+
+  const handleDeleteConfirm = async (record) => {
+    try {
+      await handleDeleteSeedlingRecord(record.id);
+      setIsDeleteModalOpen(false);
+      setRecordToDelete(null);
+    } catch (error) {
+      // handled
+    }
   };
 
   const formatSeedlingRecordForDisplay = (record) => {
@@ -345,6 +364,14 @@ const SeedlingRecordsTable = () => {
       )}
 
       <AlertModal isOpen={alertModal.isOpen} onClose={handleAlertClose} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={true} autoCloseDelay={3000} />
+
+      <DeleteSeedlingModal
+        isOpen={isDeleteModalOpen}
+        onClose={handleDeleteModalClose}
+        onConfirm={handleDeleteConfirm}
+        record={recordToDelete}
+        beneficiaryName={recordToDelete ? beneficiaries.find(b => b.beneficiaryId === recordToDelete.beneficiaryId)?.fullName : ''}
+      />
     </div>
   );
 };

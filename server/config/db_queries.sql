@@ -49,16 +49,35 @@ CREATE TABLE IF NOT EXISTS crop_status (
   INDEX idx_crop_status_survey_date (survey_date)
 );
 
+-- Farm plots for map monitoring
+CREATE TABLE IF NOT EXISTS farm_plots (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  beneficiary_id VARCHAR(10) NOT NULL,
+  plot_name VARCHAR(255) NOT NULL,
+  color VARCHAR(20) NULL,
+  coordinates JSON NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_farm_plots_beneficiary_id (beneficiary_id)
+);
+
 ALTER TABLE seedling_records
   ADD CONSTRAINT fk_seedlings_beneficiary
   FOREIGN KEY (beneficiary_id)
   REFERENCES beneficiary_details(beneficiary_id)
   ON UPDATE CASCADE
-  ON DELETE RESTRICT;
+  ON DELETE CASCADE;
 
 ALTER TABLE crop_status
   ADD CONSTRAINT fk_crop_status_beneficiary
   FOREIGN KEY (beneficiary_id)
   REFERENCES beneficiary_details(beneficiary_id)
   ON UPDATE CASCADE
-  ON DELETE RESTRICT;
+  ON DELETE CASCADE;
+
+ALTER TABLE farm_plots
+  ADD CONSTRAINT fk_farm_plots_beneficiary
+  FOREIGN KEY (beneficiary_id)
+  REFERENCES beneficiary_details(beneficiary_id)
+  ON UPDATE CASCADE
+  ON DELETE CASCADE;

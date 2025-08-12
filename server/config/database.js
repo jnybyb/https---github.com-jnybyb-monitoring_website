@@ -72,8 +72,17 @@ const getPromisePool = () => {
   return promisePool;
 };
 
+const stripSqlComments = (query) => {
+  // Remove line comments starting with -- and block comments /* ... */
+  return query
+    .replace(/--.*$/gm, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .trim();
+};
+
 const extractTableName = (query) => {
-  const match = query.match(/^create\s+table\s+if\s+not\s+exists\s+[`"]?(\w+)[`"]?/i);
+  const normalized = stripSqlComments(query);
+  const match = normalized.match(/create\s+table\s+if\s+not\s+exists\s+[`"]?(\w+)[`"]?/i);
   return match ? match[1] : null;
 };
 
@@ -89,12 +98,13 @@ const createTables = async () => {
       });
 
     for (const query of queries) {
-      const lower = query.toLowerCase();
+      const normalized = stripSqlComments(query);
+      const lower = normalized.toLowerCase();
 
-      if (lower.startsWith('create table if not exists')) {
-        const tableName = extractTableName(query);
+      if (lower.includes('create table if not exists')) {
+        const tableName = extractTableName(normalized);
         if (!tableName) {
-          try { await getPromisePool().query(query); } catch (error) {
+          try { await getPromisePool().query(normalized); } catch (error) {
             if (!(error.code === 'ER_TABLE_EXISTS_ERROR' || error.message.includes('already exists'))) {
               throw error;
             }
@@ -104,13 +114,13 @@ const createTables = async () => {
         const [existsRows] = await getPromisePool().query('SHOW TABLES LIKE ?', [tableName]);
         const tableExists = Array.isArray(existsRows) && existsRows.length > 0;
         if (tableExists) continue;
-        await getPromisePool().query(query);
+        await getPromisePool().query(normalized);
         console.log(`Table ${tableName} created successfully.`);
         continue;
       }
 
       try {
-        await getPromisePool().query(query);
+        await getPromisePool().query(normalized);
       } catch (error) {
         // Ignore duplicates for indexes/keys and foreign keys already present
         const msg = String(error.message || '').toLowerCase();
