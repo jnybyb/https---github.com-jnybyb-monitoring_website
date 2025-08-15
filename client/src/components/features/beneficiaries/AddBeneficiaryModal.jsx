@@ -467,7 +467,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                  alignItems: 'center',
                  gap: '.5rem',
                  marginTop: '1rem',
-                 padding: '.6rem',
+                 padding: '1.5rem .6rem',
                  backgroundColor: '#f8f9fa',
                  borderRadius: '8px',
                  border: '1px solid #e9ecef',
@@ -514,7 +514,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                       style={{
                         width: '70%',
                         display: 'block',
-                        margin: '0 auto 0.2rem auto',
+                        margin: '0 auto 1rem auto',
                         border: '1px solid var(--gray)',
                         borderRadius: '4px',
                         fontSize: '8px',
@@ -525,7 +525,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                         padding: '4px'
                       }}
                     />
-                    <p style={{ fontSize: '8px', color: '#6c757d', marginBottom: '.5rem' }}>
+                    <p style={{ fontSize: '8px', color: '#6c757d', marginBottom: '1rem' }}>
                       Upload profile picture
                     </p>
                   </div>
