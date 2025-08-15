@@ -187,7 +187,6 @@ const getDataOptions = () => ({
 const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState(getInitialFormData());
   const [errors, setErrors] = useState({});
-  const [beneficiaryId, setBeneficiaryId] = useState('');
 
   const styles = getCommonStyles();
   const options = getDataOptions();
@@ -205,22 +204,9 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
     resetBarangays
   } = useAddressData();
 
-  // Generate beneficiary ID on component mount
-  useEffect(() => {
-    generateBeneficiaryId();
-  }, []);
 
-  // Generate beneficiary ID: two letters, two numbers (e.g., AB12)
-  const generateBeneficiaryId = () => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const numbers = '0123456789';
-    const randomLetter1 = letters[Math.floor(Math.random() * letters.length)];
-    const randomLetter2 = letters[Math.floor(Math.random() * letters.length)];
-    const randomNumber1 = numbers[Math.floor(Math.random() * numbers.length)];
-    const randomNumber2 = numbers[Math.floor(Math.random() * numbers.length)];
-    const newId = `${randomLetter1}${randomLetter2}${randomNumber1}${randomNumber2}`;
-    setBeneficiaryId(newId);
-  };
+
+
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -333,7 +319,6 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
   const resetForm = () => {
     setFormData(getInitialFormData());
     setErrors({});
-    generateBeneficiaryId();
   };
 
   // Handle form submission
@@ -342,7 +327,6 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
     
     if (validateForm()) {
       const newBeneficiary = {
-        beneficiaryId, // include the generated ID
         firstName: formData.firstName,
         middleName: formData.middleName,
         lastName: formData.lastName,
@@ -546,27 +530,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                     </p>
                   </div>
                  
-                 <div style={{
-                   padding: '0.75rem',
-                   backgroundColor: 'white',
-                   borderRadius: '6px',
-                   textAlign: 'center',
-                   fontWeight: '500',
-                   fontSize: '11px',
-                   color: 'var(--black)',
-                   width: '100%',
-                   border: '1px solid #e9ecef'
-                 }}>
-                   <div style={{ marginBottom: '0.25rem', fontSize: '10px' }}>Beneficiary ID</div>
-                   <span style={{ 
-                     fontWeight: '700', 
-                     color: 'var(--emerald-green)', 
-                     letterSpacing: '1px', 
-                     fontSize: '16px' 
-                   }}>
-                     {beneficiaryId}
-                   </span>
-                 </div>
+
                </div>
             </div>
           </div>

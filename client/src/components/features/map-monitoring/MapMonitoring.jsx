@@ -167,14 +167,16 @@ const MapMonitoring = () => {
       display: 'flex',
       flexDirection: 'column',
       gap: '0.5rem',
-      height: 'calc(100vh - 8rem)',
+      height: '100%',
+      minHeight: 0,
       overflow: 'hidden'
     },
     mapPanel: {
       flex: 1, // Takes the remaining space (7/8)
       display: 'flex',
       flexDirection: 'column',
-      height: 'calc(100vh - 8rem)',
+      height: '100%',
+      minHeight: 0,
       overflow: 'hidden'
     },
     title: {
@@ -243,14 +245,15 @@ const MapMonitoring = () => {
     },
     mapLayerControls: {
       position: 'absolute',
-      bottom: '20px',
+      bottom: '64px', // sit above Leaflet attribution like Google Maps
       right: '20px',
-      backgroundColor: 'transparent',
+      backgroundColor: 'white',
       borderRadius: '8px',
-      boxShadow: 'none',
-      border: 'none',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+      border: '1px solid #dadce0',
       zIndex: 1000,
-      padding: '0'
+      padding: '0',
+      overflow: 'hidden'
     },
     mapLayerOptions: {
       display: 'flex',
@@ -260,38 +263,19 @@ const MapMonitoring = () => {
       border: 'none',
       backgroundColor: 'transparent',
       cursor: 'pointer',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '0',
+      display: 'block',
+      padding: '8px 12px',
       margin: '0',
-      width: '60px',
-      height: '60px'
+      fontSize: '12px',
+      color: '#5f6368'
     },
     mapLayerButtonActive: {
       border: 'none',
-      backgroundColor: 'transparent'
+      backgroundColor: '#e8f0fe',
+      color: '#1a73e8',
+      fontWeight: '600'
     },
-    mapLayerIcon: {
-      width: '40px',
-      height: '40px',
-      borderRadius: '6px',
-      marginBottom: '4px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '10px',
-      border: '1px solid #e0e0e0'
-    },
-    mapLayerLabel: {
-      fontSize: '10px',
-      color: '#666',
-      fontWeight: '400',
-      textAlign: 'center',
-      margin: 0,
-      lineHeight: '1'
-    },
+    // removed icon-based controls in favor of text buttons like Google Maps
     statsPanel: {
       backgroundColor: 'white',
       padding: '1rem',
@@ -339,7 +323,7 @@ const MapMonitoring = () => {
       paddingRight: '0.5rem',
       marginTop: '0.5rem',
       minHeight: 0,
-      maxHeight: 'calc(100vh - 350px)',
+      maxHeight: '100%',
       scrollbarWidth: 'thin',
       scrollbarColor: '#2d7c4a #f0f0f0'
     },
@@ -575,8 +559,8 @@ const MapMonitoring = () => {
         flexDirection: 'row', 
         gap: '1.5rem', 
         flex: 1,
-        height: 'calc(100vh - 8rem)',
-        alignItems: 'flex-start',
+        minHeight: 0,
+        alignItems: 'stretch',
         overflow: 'hidden'
       }}>
         <div style={styles.mapPanel}>
@@ -722,137 +706,40 @@ const MapMonitoring = () => {
               <ScaleControl />
             </MapContainer>
             
-            {/* Map Layer Controls */}
+            {/* Map Layer Controls - Google Maps like segmented control */}
             <div style={styles.mapLayerControls}>
               <div style={styles.mapLayerOptions}>
-                <button 
+                <button
                   style={{
                     ...styles.mapLayerButton,
                     ...(currentMapLayer === 'satellite' ? styles.mapLayerButtonActive : {}),
+                    borderRight: '1px solid #dadce0'
                   }}
                   onClick={() => setCurrentMapLayer('satellite')}
-                  title="Satellite View"
+                  title="Satellite"
                 >
-                  <div style={{ 
-                    ...styles.mapLayerIcon, 
-                    background: '#f0f0f0',
-                    border: '1px solid #d0d0d0',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      top: '0',
-                      left: '0',
-                      right: '0',
-                      bottom: '0',
-                      background: 'repeating-linear-gradient(45deg, #e0e0e0, #e0e0e0 2px, #d0d0d0 2px, #d0d0d0 4px)',
-                      borderRadius: '4px'
-                    }}></div>
-                  </div>
-                  <span style={{...styles.mapLayerLabel, color: '#666'}}>Satellite</span>
+                  Satellite
                 </button>
-                <button 
+                <button
                   style={{
                     ...styles.mapLayerButton,
                     ...(currentMapLayer === 'terrain' ? styles.mapLayerButtonActive : {}),
+                    borderRight: '1px solid #dadce0'
                   }}
                   onClick={() => setCurrentMapLayer('terrain')}
-                  title="Terrain View"
+                  title="Terrain"
                 >
-                  <div style={{ 
-                    ...styles.mapLayerIcon, 
-                    background: '#e8e8e8',
-                    border: '1px solid #d0d0d0',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      top: '0',
-                      left: '0',
-                      right: '0',
-                      bottom: '0',
-                      background: '#d8d8d8',
-                      borderRadius: '4px'
-                    }}></div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '15px',
-                      left: '5px',
-                      right: '5px',
-                      height: '3px',
-                      background: '#c0c0c0',
-                      borderRadius: '2px',
-                      transform: 'rotate(-15deg)'
-                    }}></div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '25px',
-                      left: '8px',
-                      right: '8px',
-                      height: '2px',
-                      background: '#b0b0b0',
-                      borderRadius: '1px',
-                      transform: 'rotate(10deg)'
-                    }}></div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '10px',
-                      left: '12px',
-                      right: '12px',
-                      height: '2px',
-                      background: '#a0a0a0',
-                      borderRadius: '1px',
-                      transform: 'rotate(-5deg)'
-                    }}></div>
-                  </div>
-                  <span style={{...styles.mapLayerLabel, color: '#666'}}>Terrain</span>
+                  Terrain
                 </button>
-                <button 
+                <button
                   style={{
                     ...styles.mapLayerButton,
                     ...(currentMapLayer === 'street' ? styles.mapLayerButtonActive : {}),
                   }}
                   onClick={() => setCurrentMapLayer('street')}
-                  title="Street View"
+                  title="Street"
                 >
-                  <div style={{ 
-                    ...styles.mapLayerIcon, 
-                    background: 'linear-gradient(45deg, #87CEEB 0%, #98FB98 50%, #F0E68C 100%)',
-                    border: '1px solid #87CEEB',
-                    position: 'relative',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      position: 'absolute',
-                      top: '2px',
-                      left: '2px',
-                      right: '2px',
-                      bottom: '2px',
-                      background: 'linear-gradient(45deg, #87CEEB 0%, #98FB98 50%, #F0E68C 100%)',
-                      borderRadius: '4px'
-                    }}></div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '8px',
-                      left: '8px',
-                      right: '8px',
-                      bottom: '8px',
-                      background: 'linear-gradient(90deg, #87CEEB 0%, #98FB98 100%)',
-                      borderRadius: '2px'
-                    }}></div>
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      left: '12px',
-                      right: '12px',
-                      bottom: '12px',
-                      background: '#F0E68C',
-                      borderRadius: '1px'
-                    }}></div>
-                  </div>
-                  <span style={{...styles.mapLayerLabel, color: '#87CEEB'}}>Street</span>
+                  Street
                 </button>
               </div>
             </div>

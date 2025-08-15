@@ -49,11 +49,10 @@ const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
 // Table column headers
 const columns = [
   'Beneficiary ID',
-  'Picture',
   'Name',
   'Address',
   'Gender',
-  'BDate',
+  'Birth Date',
   'Age',
   'Status',
   'Cellphone',
@@ -208,11 +207,22 @@ const PersonalDetailsTable = () => {
 
   const handleAddBeneficiary = async (newBeneficiary) => {
     const apiData = prepareApiData(newBeneficiary);
-    await handleApiOperation(
-      () => beneficiariesAPI.create(apiData),
-      'Beneficiary has been added successfully.',
-      'Failed to add beneficiary.'
-    );
+    try {
+      const response = await beneficiariesAPI.create(apiData);
+      await fetchBeneficiaries();
+      
+      // Create success message with generated beneficiary ID
+      const successMessage = response.beneficiaryId 
+        ? `Beneficiary has been added successfully with ID: ${response.beneficiaryId}`
+        : 'Beneficiary has been added successfully.';
+      
+      setAlertModal(getAlertConfig('success', 'Success', successMessage));
+    } catch (err) {
+      const errorData = handleAPIError(err);
+      setError(errorData.message);
+      console.error('API operation error:', err);
+      setAlertModal(getAlertConfig('error', 'Failed', 'Failed to add beneficiary.'));
+    }
   };
 
   // Handle alert modal close and then close modals
@@ -298,53 +308,61 @@ const PersonalDetailsTable = () => {
     setBeneficiaryToDelete(null);
   };
 
-  // Format data for display
+    // Format data for display
   const formatBeneficiaryForDisplay = (beneficiary) => {
     return {
       beneficiaryId: beneficiary.beneficiaryId,
-      picture: beneficiary.picture ? (
+      name: (
         <div style={{ 
-          width: '28px', 
-          height: '28px', 
-          borderRadius: '50%', 
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f8f9fa',
-          border: '2px solid #e8f5e8'
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px' // Gap between picture and name
         }}>
-          <img 
-            src={`http://localhost:5000${beneficiary.picture}`} 
-            alt="Profile" 
-            style={{ 
-              width: '100%', 
-              height: '100%', 
-              objectFit: 'cover'
-            }}
-          />
-        </div>
-      ) : (
-        <div style={{ 
-          width: '28px', 
-          height: '28px', 
-          borderRadius: '50%', 
-          backgroundColor: '#f8f9fa',
-          border: '2px solid #e8f5e8',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px'
-        }}>
-          👤
+          {beneficiary.picture ? (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8'
+            }}>
+              <img 
+                src={`http://localhost:5000${beneficiary.picture}`} 
+                alt="Profile" 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover'
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px'
+            }}>
+              👤
+            </div>
+          )}
+          <span>{beneficiary.fullName || `${beneficiary.firstName} ${beneficiary.middleName ? beneficiary.middleName + ' ' : ''}${beneficiary.lastName}`.trim()}</span>
         </div>
       ),
-      name: beneficiary.fullName || `${beneficiary.firstName} ${beneficiary.middleName ? beneficiary.middleName + ' ' : ''}${beneficiary.lastName}`.trim(),
       address: beneficiary.fullAddress || `${beneficiary.purok}, ${beneficiary.barangay}, ${beneficiary.municipality}, ${beneficiary.province}`,
       gender: beneficiary.gender,
       bDate: new Date(beneficiary.birthDate).toLocaleDateString('en-US', { 
         year: 'numeric', 
-        month: 'short', 
+        month: 'long', 
         day: 'numeric' 
       }),
       age: beneficiary.age,
@@ -437,7 +455,10 @@ const PersonalDetailsTable = () => {
             <thead>
               <tr style={{ backgroundColor: '#f0f8f0'}}>
                 {columns.map((column, index) => (
-                  <th key={index} style={styles.tableHeader}>
+                  <th key={index} style={{
+                    ...styles.tableHeader,
+                    paddingLeft: index === 1 ? '20px' : '12px' // Extra padding for Name column
+                  }}>
                     {column}
                   </th>
                 ))}
@@ -458,7 +479,7 @@ const PersonalDetailsTable = () => {
                     {Object.values(displayData).map((cell, cellIndex) => (
                       <td key={cellIndex} style={{
                         ...styles.tableCell,
-                        padding: cellIndex === 1 ? '6px 8px 6px 16px' : cellIndex === 2 ? '6px 16px 6px 8px' : '6px 16px'
+                        padding: cellIndex === 1 ? '6px 8px 6px 16px' : '6px 16px' // Adjusted for combined Picture+Name column
                       }}>
                         {cell}
                       </td>

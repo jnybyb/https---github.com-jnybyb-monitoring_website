@@ -223,7 +223,8 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
         maritalStatus: beneficiary.maritalStatus || '',
         cellphone: beneficiary.cellphone || '',
         age: beneficiary.age || '',
-        picture: null
+        picture: null,
+        existingPicture: beneficiary.picture || null
       });
       setErrors({});
       
@@ -361,22 +362,23 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
   };
 
   const handleClose = () => {
-    setFormData({
-      beneficiaryId: '',
-      firstName: '',
-      middleName: '',
-      lastName: '',
-      purok: '',
-      barangay: '',
-      municipality: '',
-      province: '',
-      gender: '',
-      birthDate: '',
-      maritalStatus: '',
-      cellphone: '',
-      age: '',
-      picture: null
-    });
+          setFormData({
+        beneficiaryId: '',
+        firstName: '',
+        middleName: '',
+        lastName: '',
+        purok: '',
+        barangay: '',
+        municipality: '',
+        province: '',
+        gender: '',
+        birthDate: '',
+        maritalStatus: '',
+        cellphone: '',
+        age: '',
+        picture: null,
+        existingPicture: null
+      });
     setErrors({});
     setIsSubmitting(false);
     onClose();
@@ -526,6 +528,17 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
                         borderRadius: '50%'
                       }}
                     />
+                  ) : formData.existingPicture ? (
+                    <img
+                      src={`http://localhost:5000${formData.existingPicture}`}
+                      alt="Profile"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '50%'
+                      }}
+                    />
                   ) : (
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="#6c757d">
                       <circle cx="12" cy="8" r="4"/>
@@ -555,7 +568,7 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
                     }}
                   />
                   <p style={{ fontSize: '8px', color: '#6c757d', marginBottom: '.5rem' }}>
-                    Upload new picture
+                    {formData.existingPicture ? 'Upload new picture (optional)' : 'Upload new picture'}
                   </p>
                 </div>
                 

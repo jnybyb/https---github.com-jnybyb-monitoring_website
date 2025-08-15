@@ -98,14 +98,36 @@ export const beneficiariesAPI = {
 // Seedlings API
 export const seedlingsAPI = {
   getAll: async () => apiRequest('/seedlings'),
-  create: async (record) => apiRequest('/seedlings', {
-    method: 'POST',
-    body: JSON.stringify(record)
-  }),
-  update: async (id, record) => apiRequest(`/seedlings/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(record)
-  }),
+  create: async (record) => {
+    const payload = {
+      beneficiaryId: record.beneficiaryId,
+      received: record.received,
+      planted: record.planted,
+      hectares: record.hectares,
+      dateOfPlantingStart: record.dateOfPlantingStart || record.dateOfPlanting,
+      dateOfPlantingEnd: record.dateOfPlantingEnd || null,
+      gps: record.gps || null
+    };
+    return apiRequest('/seedlings', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  },
+  update: async (id, record) => {
+    const payload = {
+      beneficiaryId: record.beneficiaryId,
+      received: record.received,
+      planted: record.planted,
+      hectares: record.hectares,
+      dateOfPlantingStart: record.dateOfPlantingStart || record.dateOfPlanting,
+      dateOfPlantingEnd: record.dateOfPlantingEnd || null,
+      gps: record.gps || null
+    };
+    return apiRequest(`/seedlings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    });
+  },
   delete: async (id) => apiRequest(`/seedlings/${id}`, { method: 'DELETE' })
 };
 
@@ -134,6 +156,13 @@ export const cropStatusAPI = {
     formData.append('beneficiaryId', record.beneficiaryId);
     formData.append('aliveCrops', record.aliveCrops);
     formData.append('deadCrops', record.deadCrops ?? 0);
+    
+    // Handle existing pictures for edit mode
+    if (record.existingPictures && Array.isArray(record.existingPictures)) {
+      formData.append('existingPictures', JSON.stringify(record.existingPictures));
+    }
+    
+    // Handle new pictures
     if (Array.isArray(record.pictures)) {
       record.pictures.forEach(file => {
         if (file instanceof File) formData.append('pictures', file);

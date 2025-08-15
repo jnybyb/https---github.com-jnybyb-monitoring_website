@@ -142,7 +142,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
             <div style={styles.surveyDate}>
               {new Date(record.surveyDate).toLocaleDateString('en-US', { 
                 year: 'numeric', 
-                month: 'short', 
+                month: 'long', 
                 day: 'numeric' 
               })}
             </div>

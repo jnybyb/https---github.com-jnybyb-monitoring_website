@@ -45,15 +45,16 @@ const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
   );
 };
 
-// Table column headers
+// Table column headers (requested order)
 const columns = [
-  'Beneficiary Name',
   'Beneficiary ID',
-  'Received',
+  'Name',
+  'Seeds Received',
+  'Date Received',
   'Planted',
+  'Date Planted',
   'Hectares',
-  'Date of Planting',
-  'GPS',
+  'Plot',
   ''
 ];
 
@@ -109,6 +110,28 @@ const getCommonStyles = () => ({
   }
 });
 
+// Spacing styles with more space between Beneficiary ID and Name
+const columnHeaderStyles = {
+  0: { paddingRight: '16px', width: '1%', whiteSpace: 'nowrap' }, // Beneficiary ID
+  1: { paddingLeft: '32px' }, // Name
+  2: { paddingLeft: '16px' }, // Seeds Received
+  3: { paddingLeft: '16px' }, // Date Received
+  4: { paddingLeft: '16px' }, // Planted
+  5: { paddingLeft: '16px' }, // Date Planted
+  6: { paddingLeft: '16px' }, // Hectares
+  7: { paddingLeft: '16px' }  // Plot
+};
+const columnCellStyles = {
+  0: { paddingRight: '16px', width: '1%', whiteSpace: 'nowrap' }, // Beneficiary ID
+  1: { padding: '6px 8px 6px 24px' }, // Name
+  2: { paddingLeft: '16px' }, // Seeds Received
+  3: { paddingLeft: '16px' }, // Date Received
+  4: { paddingLeft: '16px' }, // Planted
+  5: { paddingLeft: '16px' }, // Date Planted
+  6: { paddingLeft: '16px' }, // Hectares
+  7: { paddingLeft: '16px' }  // Plot
+};
+
 // Alert modal configuration
 const getAlertConfig = (type, title, message) => ({
   isOpen: true,
@@ -149,10 +172,11 @@ const SeedlingRecordsTable = () => {
         beneficiariesAPI.getAll()
       ]);
       setSeedlingRecordsData(records || []);
-      // Map beneficiaries for name lookup
+      // Map beneficiaries for name lookup and profile pictures
       const mapped = (bens || []).map(b => ({
         beneficiaryId: b.beneficiaryId,
-        fullName: b.fullName || `${b.firstName} ${b.middleName ? b.middleName + ' ' : ''}${b.lastName}`.trim()
+        fullName: b.fullName || `${b.firstName} ${b.middleName ? b.middleName + ' ' : ''}${b.lastName}`.trim(),
+        picture: b.picture // Include profile picture from database
       }));
       setBeneficiaries(mapped);
     } catch (err) {
@@ -189,7 +213,13 @@ const SeedlingRecordsTable = () => {
 
   const handleEditSeedlingRecord = async (updatedRecord) => {
     try {
-      await seedlingsAPI.update(selectedRecord.id, updatedRecord);
+      // Use the ID from the updated record data
+      const recordId = updatedRecord.id;
+      if (!recordId) {
+        throw new Error('Record ID is missing for update operation');
+      }
+      
+      await seedlingsAPI.update(recordId, updatedRecord);
       setAlertModal(getAlertConfig('success', 'Success', 'Seedling record has been updated successfully.'));
       await fetchAll();
     } catch (err) {
@@ -250,14 +280,78 @@ const SeedlingRecordsTable = () => {
   const formatSeedlingRecordForDisplay = (record) => {
     const beneficiary = beneficiaries.find(b => b.beneficiaryId === record.beneficiaryId);
     const beneficiaryName = beneficiary ? beneficiary.fullName : record.beneficiaryId;
+    const start = record.dateOfPlantingStart || record.dateOfPlanting;
+    const end = record.dateOfPlantingEnd || null;
+    const receivedDateString = record.dateReceived ? new Date(record.dateReceived).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A';
+    const dateString = (() => {
+      if (!start) return 'N/A';
+      const startDate = new Date(start);
+      if (!end) return startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const endDate = new Date(end);
+      // Same month and year → e.g., August 12-18, 2025
+      if (startDate.getFullYear() === endDate.getFullYear() && startDate.getMonth() === endDate.getMonth()) {
+        const month = startDate.toLocaleDateString('en-US', { month: 'long' });
+        return `${month} ${startDate.getDate()}-${endDate.getDate()}, ${startDate.getFullYear()}`;
+      }
+      // Different month or year → e.g., August 28, 2025 - September 02, 2025
+      const s = startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const e = endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      return `${s} - ${e}`;
+    })();
     return {
-      beneficiaryName: beneficiaryName,
       beneficiaryId: record.beneficiaryId,
+      beneficiaryName: (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px' // Gap between picture and name
+        }}>
+          {beneficiary && beneficiary.picture ? (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8'
+            }}>
+              <img 
+                src={`http://localhost:5000${beneficiary.picture}`} 
+                alt="Profile" 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover'
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px'
+            }}>
+              👤
+            </div>
+          )}
+          <span>{beneficiaryName}</span>
+        </div>
+      ),
       received: Number(record.received).toLocaleString(),
+      dateReceived: receivedDateString,
       planted: Number(record.planted).toLocaleString(),
-      hectares: `${Number(record.hectares)} ha`,
-      dateOfPlanting: new Date(record.dateOfPlanting).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      gps: record.gps || 'N/A',
+      dateOfPlanting: dateString,
+      hectares: record.hectares ? `${record.hectares} ha` : 'N/A',
+      plot: record.plot || 'N/A',
       actions: (
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
           <button
@@ -318,7 +412,10 @@ const SeedlingRecordsTable = () => {
             <thead>
               <tr style={{ backgroundColor: '#f0f8f0'}}>
                 {columns.map((column, index) => (
-                  <th key={index} style={styles.tableHeader}>{column}</th>
+                  <th key={index} style={{ 
+                    ...styles.tableHeader, 
+                    ...(columnHeaderStyles[index] || {})
+                  }}>{column}</th>
                 ))}
               </tr>
             </thead>
@@ -330,7 +427,7 @@ const SeedlingRecordsTable = () => {
                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
                     {Object.values(displayData).map((cell, cellIndex) => (
-                      <td key={cellIndex} style={styles.tableCell}>{cell}</td>
+                      <td key={cellIndex} style={{ ...styles.tableCell, ...(columnCellStyles[cellIndex] || {}) }}>{cell}</td>
                     ))}
                   </tr>
                 );

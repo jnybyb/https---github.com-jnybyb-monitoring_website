@@ -14,6 +14,7 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
     beneficiaryPicture: '',
     aliveCrops: '',
     deadCrops: '',
+    plot: '',
     pictures: []
   });
   const [beneficiaries, setBeneficiaries] = useState([]);
@@ -62,7 +63,7 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
 
   useEffect(() => {
     if (!isOpen) {
-      setFormData({ id: '', surveyDate: '', surveyer: '', beneficiaryId: '', beneficiaryName: '', beneficiaryPicture: '', aliveCrops: '', deadCrops: '', pictures: [] });
+      setFormData({ id: '', surveyDate: '', surveyer: '', beneficiaryId: '', beneficiaryName: '', beneficiaryPicture: '', aliveCrops: '', deadCrops: '', plot: '', pictures: [] });
       setSelectedFiles([]);
       setErrors({});
     }
@@ -76,20 +77,27 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
         surveyDate: record.surveyDate ? new Date(record.surveyDate).toISOString().split('T')[0] : '',
         surveyer: record.surveyer || '',
         beneficiaryId: record.beneficiaryId || '',
-        beneficiaryName: '', // Will be set after beneficiaries load
-        beneficiaryPicture: '',
+        beneficiaryName: record.beneficiaryName || '', // Try to set from record first
+        beneficiaryPicture: record.beneficiaryPicture || '',
         aliveCrops: record.aliveCrops?.toString() || '',
         deadCrops: record.deadCrops?.toString() || '0',
+        plot: record.plot || '',
         pictures: record.pictures || []
       });
+      
       // Handle existing pictures properly for edit mode
-      if (record.pictures && Array.isArray(record.pictures)) {
+      if (record.pictures && Array.isArray(record.pictures) && record.pictures.length > 0) {
+        // For existing pictures, we need to preserve them as they are (likely filenames)
         setSelectedFiles(record.pictures);
+        // Also update formData.pictures to ensure synchronization
+        setFormData(prev => ({ ...prev, pictures: record.pictures }));
       } else {
         setSelectedFiles([]);
       }
     }
   }, [isEdit, record, isOpen]);
+
+
 
   const validateForm = () => {
     const newErrors = {};
@@ -120,9 +128,23 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
   };
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    setSelectedFiles(files);
-    setFormData(prev => ({ ...prev, pictures: files }));
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    
+    setSelectedFiles(prev => {
+      // Filter out any existing files that are not File objects (i.e., existing image URLs)
+      const existingImages = prev.filter(item => !(item instanceof File));
+      const newFiles = [...existingImages, ...files];
+      return newFiles.slice(0, 10);
+    });
+    
+    setFormData(prev => {
+      const existingImages = (prev.pictures || []).filter(item => !(item instanceof File));
+      const newFiles = [...existingImages, ...files];
+      return { ...prev, pictures: newFiles.slice(0, 10) };
+    });
+    
+    try { e.target.value = null; } catch (_) {}
   };
 
   const removeFile = (index) => {
@@ -149,14 +171,13 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
       
       // Handle pictures properly for edit mode
       if (isEdit) {
-        // For edit mode, only send new files if they were selected
-        if (selectedFiles.length > 0 && selectedFiles[0] instanceof File) {
-          submitData.pictures = selectedFiles;
-        } else {
-          // Keep existing pictures if no new files selected
-          // Don't include pictures in the update if no new files were selected
-          delete submitData.pictures;
-        }
+        // For edit mode, we need to separate existing images (filenames) from new files
+        const existingImages = selectedFiles.filter(item => typeof item === 'string' && !(item instanceof File));
+        const newFiles = selectedFiles.filter(item => item instanceof File);
+        
+        // Send existing image filenames as a separate field and new files as pictures
+        submitData.existingPictures = existingImages;
+        submitData.pictures = newFiles;
       } else {
         // For add mode, send selected files
         submitData.pictures = selectedFiles;
@@ -176,8 +197,14 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
   // Resolve preview URL
   const resolvePreviewUrl = (p) => {
     if (!p) return '';
-    if (p.startsWith('http')) return p;
-    return `http://localhost:5000${p.startsWith('/') ? p : '/' + p}`;
+    if (p instanceof File) return URL.createObjectURL(p);
+    if (typeof p === 'string' && p.startsWith('http')) return p;
+    // Handle existing images (filenames) from database
+    if (typeof p === 'string' && !p.startsWith('http') && !p.startsWith('/')) {
+      return `http://localhost:5000/uploads/${p}`;
+    }
+    if (typeof p === 'string') return `http://localhost:5000${p.startsWith('/') ? p : '/' + p}`;
+    return '';
   };
 
   if (!isOpen) return null;
@@ -199,22 +226,6 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
         <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
-                  Survey Date *
-                </label>
-                <input type="date" name="surveyDate" value={formData.surveyDate} onChange={handleInputChange} style={{ width: '100%', padding: '0.5rem', border: errors.surveyDate ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} />
-                {errors.surveyDate && (<p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.surveyDate}</p>)}
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
-                  Surveyer *
-                </label>
-                <input type="text" name="surveyer" value={formData.surveyer} onChange={handleInputChange} style={{ width: '100%', padding: '0.5rem', border: errors.surveyer ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} placeholder="Enter surveyer name" />
-                {errors.surveyer && (<p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.surveyer}</p>)}
-              </div>
-
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                   Beneficiary *
@@ -250,6 +261,22 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
+                  Survey Date *
+                </label>
+                <input type="date" name="surveyDate" value={formData.surveyDate} onChange={handleInputChange} style={{ width: '100%', padding: '0.5rem', border: errors.surveyDate ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} />
+                {errors.surveyDate && (<p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.surveyDate}</p>)}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
+                  Surveyer *
+                </label>
+                <input type="text" name="surveyer" value={formData.surveyer} onChange={handleInputChange} style={{ width: '100%', padding: '0.5rem', border: errors.surveyer ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} placeholder="Enter surveyer name" />
+                {errors.surveyer && (<p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.surveyer}</p>)}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                   Number of Alive Crops *
                 </label>
                 <input type="number" name="aliveCrops" value={formData.aliveCrops} onChange={handleInputChange} min="1" style={{ width: '100%', padding: '0.5rem', border: errors.aliveCrops ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} placeholder="Enter number" />
@@ -266,19 +293,41 @@ const AddCropStatusModal = ({ isOpen, onClose, onSubmit, record, isEdit = false 
 
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
+                  Plot
+                </label>
+                <input type="text" name="plot" value={formData.plot || ''} onChange={handleInputChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} placeholder="Enter plot information (optional)" />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                   Pictures (Optional)
                 </label>
-                <input type="file" multiple accept="image/*" onChange={handleFileChange} style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} disabled={loading} />
-                {selectedFiles.length > 0 && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <div style={{ fontSize: '0.625rem', color: '#6c757d', marginBottom: '0.25rem' }}>Selected files ({selectedFiles.length}):</div>
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem', backgroundColor: '#f8f9fa', borderRadius: '4px', marginBottom: '0.25rem' }}>
-                        <span style={{ fontSize: '0.625rem', color: '#495057', flex: 1 }}>{file.name}</span>
-                        <button type="button" onClick={() => removeFile(index)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545', fontSize: '0.75rem', padding: '0.125rem' }} title="Remove file">×</button>
+                <input id="crop-pictures-input" type="file" multiple accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} disabled={loading} />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                  {selectedFiles.map((file, index) => {
+                    const src = resolvePreviewUrl(file);
+                    return (
+                      <div key={index} style={{ position: 'relative', width: '100%', paddingBottom: '100%', backgroundColor: '#f8f9fa', border: '1px solid #e8f5e8', borderRadius: '6px', overflow: 'hidden' }}>
+                        {src ? (
+                          <img src={src} alt={`Selected ${index + 1}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#6c757d' }}>
+                            {typeof file === 'string' ? 'Image' : 'File'}
+                          </div>
+                        )}
+                        <button type="button" onClick={() => removeFile(index)} title="Remove"
+                          style={{ position: 'absolute', top: '4px', right: '4px', width: '18px', height: '18px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', lineHeight: 1 }}>×</button>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
+                  {selectedFiles.length < 10 && (
+                    <label htmlFor="crop-pictures-input" style={{ cursor: 'pointer', display: 'block', paddingBottom: '100%', position: 'relative', backgroundColor: '#ffffff', border: '1px dashed #cbd5c0', borderRadius: '6px', color: '#6c757d', fontSize: '12px' }}>
+                      <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>+ Add</span>
+                    </label>
+                  )}
+                </div>
+                {selectedFiles.length > 0 && (
+                  <div style={{ fontSize: '0.625rem', color: '#6c757d', marginTop: '0.25rem' }}>{selectedFiles.length}/10 selected</div>
                 )}
               </div>
             </div>

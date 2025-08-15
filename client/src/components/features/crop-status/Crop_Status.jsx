@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { HiOutlineTrash } from "react-icons/hi2";
-import { AiOutlineEdit } from "react-icons/ai";
 import { IoClose } from "react-icons/io5";
 import { 
   FaUserFriends, 
@@ -13,6 +11,7 @@ import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
 import DeleteCropStatusModal from '../../features/crop-status/DeleteCropStatusModal';
+import ViewCropStatusModal from '../../features/crop-status/ViewCropStatusModal';
 import { cropStatusAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
 
 // Inline NoDataIcon component
@@ -48,13 +47,13 @@ const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
 
 // Table column headers
 const columns = [
+  'Beneficiary ID',
+  'Name',
   'Survey Date',
   'Surveyer',
-  'Beneficiary ID',
-  'Pictures',
   'Number of Alive Crops',
   'Number of Dead Crops',
-  ''
+  'Plot'
 ];
 
 // Common styles
@@ -109,6 +108,27 @@ const getCommonStyles = () => ({
   }
 });
 
+// Spacing styles for better column spacing
+const columnHeaderStyles = {
+  0: { paddingRight: '16px', width: '1%', whiteSpace: 'nowrap' }, // Beneficiary ID
+  1: { paddingLeft: '32px' }, // Name
+  2: { paddingLeft: '16px' }, // Survey Date
+  3: { paddingLeft: '16px' }, // Surveyer
+  4: { paddingLeft: '16px', textAlign: 'center' }, // Alive Crops - centered
+  5: { paddingLeft: '16px', textAlign: 'center' }, // Dead Crops - centered
+  6: { paddingLeft: '16px' }  // Plot
+};
+
+const columnCellStyles = {
+  0: { paddingRight: '16px', width: '1%', whiteSpace: 'nowrap' }, // Beneficiary ID
+  1: { padding: '6px 8px 6px 24px' }, // Name
+  2: { paddingLeft: '16px' }, // Survey Date
+  3: { paddingLeft: '16px' }, // Surveyer
+  4: { paddingLeft: '16px', textAlign: 'center' }, // Alive Crops - centered
+  5: { paddingLeft: '16px', textAlign: 'center' }, // Dead Crops - centered
+  6: { paddingLeft: '16px' }  // Plot
+};
+
 // Alert modal configuration
 const getAlertConfig = (type, title, message) => ({
   isOpen: true,
@@ -125,8 +145,10 @@ const CropStatusTable = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [recordToDelete, setRecordToDelete] = useState(null);
+  const [recordToView, setRecordToView] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
   
   // Pagination state
@@ -261,28 +283,94 @@ const CropStatusTable = () => {
     setIsDeleteModalOpen(true);
   };
 
+  const handleViewClick = (record) => {
+    setRecordToView(record);
+    setIsViewModalOpen(true);
+  };
+
+  const handleViewModalClose = () => {
+    setIsViewModalOpen(false);
+    setRecordToView(null);
+  };
+
+  const handleViewEditClick = (record) => {
+    setSelectedRecord(record);
+    setIsViewModalOpen(false);
+    setIsEditModalOpen(true);
+  };
+
+  const handleViewDeleteClick = (record) => {
+    setRecordToDelete(record);
+    setIsViewModalOpen(false);
+    setIsDeleteModalOpen(true);
+  };
+
   const formatCropStatusForDisplay = (record) => {
+    // Find beneficiary for name and profile picture
+    const beneficiary = beneficiaries.find(b => b.beneficiaryId === record.beneficiaryId);
+    const beneficiaryName = beneficiary ? beneficiary.fullName || `${beneficiary.firstName} ${beneficiary.middleName ? beneficiary.middleName + ' ' : ''}${beneficiary.lastName}`.trim() : record.beneficiaryId;
+    
     return {
-      surveyDate: new Date(record.surveyDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      surveyer: record.surveyer,
       beneficiaryId: record.beneficiaryId,
-      pictures: record.pictures && record.pictures.length > 0 ? (
-        <div style={{ width: '28px', height: '28px', borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa', border: '2px solid #e8f5e8', cursor: 'pointer' }}
-          title="Click to view pictures"
-          onClick={() => console.log('View pictures:', record.pictures)}>
-          <img src={`http://localhost:5000/uploads/${record.pictures[0]}`} alt="Crop Survey" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      name: (
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px' // Gap between picture and name
+        }}>
+          {beneficiary && beneficiary.picture ? (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8'
+            }}>
+              <img 
+                src={`http://localhost:5000${beneficiary.picture}`} 
+                alt="Profile" 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover'
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ 
+              width: '28px', 
+              height: '28px', 
+              borderRadius: '50%', 
+              backgroundColor: '#f8f9fa',
+              border: '2px solid #e8f5e8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px'
+            }}>
+              👤
+            </div>
+          )}
+          <span>{beneficiaryName}</span>
         </div>
-      ) : (
-        <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#f8f9fa', border: '2px solid #e8f5e8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>📷</div>
       ),
-      aliveCrops: (<span style={{ color: '#28a745', fontWeight: '600', fontSize: '0.6rem' }}>{record.aliveCrops.toLocaleString()}</span>),
-      deadCrops: (<span style={{ color: '#dc3545', fontWeight: '600', fontSize: '0.6rem' }}>{record.deadCrops.toLocaleString()}</span>),
-      actions: (
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-          <button onClick={() => handleEditClick(record)} style={{ ...styles.actionButton, color: '#2c5530' }} onMouseOver={(e) => e.target.style.color = '#1e3a23'} onMouseOut={(e) => e.target.style.color = '#2c5530'} title="Edit"><AiOutlineEdit size={12} /></button>
-          <button onClick={() => handleDeleteClick(record)} style={{ ...styles.actionButton, color: '#dc3545' }} onMouseOver={(e) => e.target.style.color = '#c82333'} onMouseOut={(e) => e.target.style.color = '#dc3545'} title="Delete"><HiOutlineTrash size={12} /></button>
+      surveyDate: new Date(record.surveyDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      surveyer: record.surveyer,
+      aliveCrops: (
+        <div style={{ textAlign: 'center' }}>
+          <span style={{ color: '#28a745', fontWeight: '600', fontSize: '0.6rem' }}>{record.aliveCrops.toLocaleString()}</span>
         </div>
-      )
+      ),
+      deadCrops: (
+        <div style={{ textAlign: 'center' }}>
+          <span style={{ color: '#dc3545', fontWeight: '600', fontSize: '0.6rem' }}>{record.deadCrops.toLocaleString()}</span>
+        </div>
+      ),
+      plot: record.plot || 'N/A'
     };
   };
 
@@ -318,7 +406,10 @@ const CropStatusTable = () => {
             <thead>
               <tr style={{ backgroundColor: '#f0f8f0'}}>
                 {columns.map((column, index) => (
-                  <th key={index} style={styles.tableHeader}>{column}</th>
+                  <th key={index} style={{ 
+                    ...styles.tableHeader, 
+                    ...(columnHeaderStyles[index] || {})
+                  }}>{column}</th>
                 ))}
               </tr>
             </thead>
@@ -326,11 +417,20 @@ const CropStatusTable = () => {
               {currentItems.map((record, rowIndex) => {
                 const displayData = formatCropStatusForDisplay(record);
                 return (
-                  <tr key={record.id || rowIndex} style={{ borderBottom: '1px solid #e8f5e8', transition: 'background-color 0.2s', height: '28px', backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white' }}
+                  <tr 
+                    key={record.id || rowIndex} 
+                    style={{ 
+                      borderBottom: '1px solid #e8f5e8', 
+                      transition: 'background-color 0.2s', 
+                      height: '28px', 
+                      backgroundColor: rowIndex % 2 === 0 ? '#fafdfa' : 'white',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleViewClick(record)}
                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f8f0'}
                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = rowIndex % 2 === 0 ? '#fafdfa' : 'white'}>
                     {Object.values(displayData).map((cell, cellIndex) => (
-                      <td key={cellIndex} style={styles.tableCell}>{cell}</td>
+                      <td key={cellIndex} style={{ ...styles.tableCell, ...(columnCellStyles[cellIndex] || {}) }}>{cell}</td>
                     ))}
                   </tr>
                 );
@@ -375,6 +475,17 @@ const CropStatusTable = () => {
         onConfirm={handleDeleteConfirm}
         record={recordToDelete}
       />
+
+      {isViewModalOpen && recordToView && (
+        <ViewCropStatusModal
+          isOpen={isViewModalOpen}
+          onClose={handleViewModalClose}
+          record={recordToView}
+          onEdit={handleViewEditClick}
+          onDelete={handleViewDeleteClick}
+          beneficiary={beneficiaries.find(b => b.beneficiaryId === recordToView.beneficiaryId)}
+        />
+      )}
     </div>
   );
 };

@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS seedling_records (
   planted INT NOT NULL,
   hectares DECIMAL(8,2) NOT NULL,
   date_of_planting DATE NOT NULL,
+  date_of_planting_end DATE NULL,
   gps VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS crop_status (
   beneficiary_id VARCHAR(10) NOT NULL,
   alive_crops INT NOT NULL,
   dead_crops INT NOT NULL DEFAULT 0,
+  plot VARCHAR(255) NULL,
   pictures JSON NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -82,16 +84,4 @@ ALTER TABLE farm_plots
   ON UPDATE CASCADE
   ON DELETE CASCADE;
 
--- Philippine Address Data Table
-CREATE TABLE IF NOT EXISTS philippine_addresses (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  province VARCHAR(100) NOT NULL,
-  municipality VARCHAR(100) NOT NULL,
-  barangay VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY unique_address (province, municipality, barangay),
-  INDEX idx_province (province),
-  INDEX idx_municipality (municipality),
-  INDEX idx_barangay (barangay)
-);
+

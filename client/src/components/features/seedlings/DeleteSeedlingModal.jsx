@@ -147,11 +147,22 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
               <div>Received: {record.received}</div>
               <div>Planted: {record.planted}</div>
               <div>Hectares: {record.hectares} ha</div>
-              <div>Date: {new Date(record.dateOfPlanting).toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-              })}</div>
+              <div>Plot: {record.plot || 'N/A'}</div>
+              <div>Date: {(() => {
+                try {
+                  const date = new Date(record.dateOfPlanting || record.dateOfPlantingStart);
+                  if (isNaN(date.getTime())) {
+                    return 'N/A';
+                  }
+                  return date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  });
+                } catch (error) {
+                  return 'N/A';
+                }
+              })()}</div>
             </div>
           </div>
 
