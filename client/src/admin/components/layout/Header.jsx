@@ -1,5 +1,5 @@
 import React from 'react';
-import coffeeLogo from '../../assets/images/coffee crop logo.png';
+import coffeeLogo from '../../../assets/images/coffee crop logo.png';
 
 // Header component with branding and user profile section
 const Header = () => {

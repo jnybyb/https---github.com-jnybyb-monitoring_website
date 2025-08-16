@@ -193,6 +193,11 @@ export const addressesAPI = {
   })
 };
 
+// Statistics API
+export const statisticsAPI = {
+  getDashboardStats: async () => apiRequest('/statistics')
+};
+
 // Test API connection
 export const testAPI = async () => apiRequest('/health');
 
