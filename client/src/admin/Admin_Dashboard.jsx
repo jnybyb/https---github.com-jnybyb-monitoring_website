@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/layout/Layout';
-import PersonalDetails from '../components/features/beneficiaries/Personal_Details';
-import SeedlingRecords from '../components/features/seedlings/Seedling_Records';
-import CropStatus from '../components/features/crop-status/Crop_Status';
-import MapMonitoring from '../components/features/map-monitoring/MapMonitoring';
-import { statisticsAPI } from '../services/api';
+import Layout from './components/layout/Layout';
+import PersonalDetails from './components/features/beneficiaries/Personal_Details';
+import SeedlingRecords from './components/features/seedlings/Seedling_Records';
+import CropStatus from './components/features/crop-status/Crop_Status';
+import MapMonitoring from './components/features/map-monitoring/MapMonitoring';
+import { statisticsAPI } from './services/api';
 
 const AdminDashboard = () => {
   const [active, setActive] = useState('Dashboard');
