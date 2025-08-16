@@ -10,6 +10,4 @@ const calculateAge = (birthDateStr) => {
   return age < 0 || age > 125 ? null : age;
 };
 
-module.exports = { calculateAge };
-
-
+export { calculateAge };

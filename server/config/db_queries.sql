@@ -26,21 +26,24 @@ CREATE TABLE IF NOT EXISTS seedling_records (
   id INT AUTO_INCREMENT PRIMARY KEY,
   beneficiary_id VARCHAR(10) NOT NULL,
   received INT NOT NULL,
+  date_received DATE NOT NULL,
   planted INT NOT NULL,
-  hectares DECIMAL(8,2) NOT NULL,
   date_of_planting DATE NOT NULL,
   date_of_planting_end DATE NULL,
+  hectares DECIMAL(8,2) NOT NULL,
+  plot VARCHAR(255) NULL,
   gps VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_seedlings_beneficiary_id (beneficiary_id)
+  INDEX idx_seedlings_beneficiary_id (beneficiary_id),
+  INDEX idx_seedlings_plot (plot)
 );
 
 CREATE TABLE IF NOT EXISTS crop_status (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  beneficiary_id VARCHAR(10) NOT NULL,
   survey_date DATE NOT NULL,
   surveyer VARCHAR(100) NOT NULL,
-  beneficiary_id VARCHAR(10) NOT NULL,
   alive_crops INT NOT NULL,
   dead_crops INT NOT NULL DEFAULT 0,
   plot VARCHAR(255) NULL,
@@ -60,7 +63,8 @@ CREATE TABLE IF NOT EXISTS farm_plots (
   coordinates JSON NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_farm_plots_beneficiary_id (beneficiary_id)
+  INDEX idx_farm_plots_beneficiary_id (beneficiary_id),
+  INDEX idx_farm_plots_plot_name (plot_name)
 );
 
 ALTER TABLE seedling_records
@@ -83,5 +87,20 @@ ALTER TABLE farm_plots
   REFERENCES beneficiary_details(beneficiary_id)
   ON UPDATE CASCADE
   ON DELETE CASCADE;
+
+-- Add foreign key constraints for plot references
+ALTER TABLE seedling_records
+  ADD CONSTRAINT fk_seedlings_plot
+  FOREIGN KEY (plot)
+  REFERENCES farm_plots(plot_name)
+  ON UPDATE CASCADE
+  ON DELETE SET NULL;
+
+ALTER TABLE crop_status
+  ADD CONSTRAINT fk_crop_status_plot
+  FOREIGN KEY (plot)
+  REFERENCES farm_plots(plot_name)
+  ON UPDATE CASCADE
+  ON DELETE SET NULL;
 
 

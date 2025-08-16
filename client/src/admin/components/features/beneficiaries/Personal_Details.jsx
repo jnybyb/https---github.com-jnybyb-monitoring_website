@@ -11,7 +11,7 @@ import AddBeneficiaryModal from './AddBeneficiaryModal';
 import EditBeneficiaryModal from './EditBeneficiaryModal';
 import DeleteBeneficiaryModal from './DeleteBeneficiaryModal';
 import AlertModal from '../../ui/AlertModal';
-import Button from '../../ui/Buttons';
+import Button from '../../ui/BeneficiaryButtons';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import { beneficiariesAPI, handleAPIError } from '../../../services/api';
 

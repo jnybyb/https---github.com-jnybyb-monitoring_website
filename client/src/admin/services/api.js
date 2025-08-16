@@ -68,6 +68,10 @@ const apiRequestWithFile = async (endpoint, formData, options = {}) => {
 export const beneficiariesAPI = {
   getAll: async () => apiRequest('/beneficiaries'),
   getById: async (id) => apiRequest(`/beneficiaries/${id}`),
+  generateId: async (firstName, lastName) => apiRequest('/beneficiaries/generate-id', {
+    method: 'POST',
+    body: JSON.stringify({ firstName, lastName })
+  }),
   create: async (beneficiaryData) => {
     const formData = new FormData();
     Object.keys(beneficiaryData).forEach(key => {

@@ -122,27 +122,35 @@
      COLOR PALETTE CUSTOM PROPS
      ============================ */
      :root {
+      /* Core color palette */
       --mint-green: #98dfb7;
       --olive-green: #708238;
       --forest-green: #183c1b;
       --emerald-green: #30c07d;
       --pine-green: #2d7c4a;  
-      --dark-green:#055035;  
+      --dark-green: #055035;  
+      --primary-green: #2c5530;
     
       --dark-brown: #4B2E2B;
+      --deep-brown: #2d1b1a;
       --tan: #a1866f;
       --beige: #F5F5DC;
       --ivory: #FFFFF0;
       --light-gray: #f0f0f0;
-      --gray:#CED4DA;
+      --gray: #CED4DA;
       --white: #FFFFFF;
       --black: #000000;
-      --red: #DC3545;
       
-      /* Additional colors used in components */
-      --primary-green: #2c5530;
-      --deep-brown: #2d1b1a;
-      --forest-color: #183c1b;
+      /* Utility colors */
+      --red: #DC3545;
+      --success: #28a745;
+      --warning: #ffc107;
+      --info: #17a2b8;
+      --pagination-gray: #495057;
+      --pagination-border: #dee2e6;
+      --pagination-hover: #e8f5e8;
+      
+      /* Shadows */
       --shadow-color: rgba(161, 134, 111, 0.15);
       --shadow-dark: rgba(12, 17, 15, 0.10);
       --shadow-light: rgba(0, 0, 0, 0.2);

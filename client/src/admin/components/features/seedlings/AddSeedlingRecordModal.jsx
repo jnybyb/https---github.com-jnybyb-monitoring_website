@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IoClose } from "react-icons/io5";
-import Button from '../../ui/Buttons';
+import Button from '../../ui/BeneficiaryButtons';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import { beneficiariesAPI, handleAPIError } from '../../../services/api';
 

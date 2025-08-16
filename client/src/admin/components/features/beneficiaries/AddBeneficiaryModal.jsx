@@ -1,5 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import { useAddressData } from '../../../hooks/useAddressData';
+import { calculateAge } from '../../../utils/age';
+import { generateBeneficiaryId } from '../../../utils/beneficiaryId';
 
 // Common styles
 const getCommonStyles = () => ({
@@ -300,20 +302,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Calculate age from birth date
-  const calculateAge = (birthDateStr) => {
-    if (!birthDateStr) return 0;
-    
-    const birthDate = new Date(birthDateStr);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
+
 
   // Reset form to initial state
   const resetForm = () => {
@@ -322,27 +311,40 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (validateForm()) {
-      const newBeneficiary = {
-        firstName: formData.firstName,
-        middleName: formData.middleName,
-        lastName: formData.lastName,
-        purok: formData.purok,
-        barangay: formData.barangay,
-        municipality: formData.municipality,
-        province: formData.province,
-        gender: formData.gender,
-        birthDate: formData.birthDate,
-        maritalStatus: formData.maritalStatus,
-        cellphone: formData.cellphone,
-        picture: formData.picture
-      };
-      
-      onSubmit(newBeneficiary);
-      resetForm();
+      try {
+        // Generate beneficiary ID
+        const beneficiaryId = await generateBeneficiaryId(formData.firstName, formData.lastName);
+        
+        // Calculate age
+        const age = calculateAge(formData.birthDate);
+        
+        const newBeneficiary = {
+          beneficiaryId,
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          purok: formData.purok,
+          barangay: formData.barangay,
+          municipality: formData.municipality,
+          province: formData.province,
+          gender: formData.gender,
+          birthDate: formData.birthDate,
+          age,
+          maritalStatus: formData.maritalStatus,
+          cellphone: formData.cellphone,
+          picture: formData.picture
+        };
+        
+        onSubmit(newBeneficiary);
+        resetForm();
+      } catch (error) {
+        console.error('Error preparing beneficiary data:', error);
+        // Handle error appropriately
+      }
     }
   };
 

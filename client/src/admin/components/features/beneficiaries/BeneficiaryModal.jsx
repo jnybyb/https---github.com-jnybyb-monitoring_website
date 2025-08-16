@@ -1,6 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import { useAddressData } from '../../../hooks/useAddressData';
+import { calculateAge } from '../../../utils/age';
 
 // Common styles
 const getCommonStyles = () => ({
@@ -345,20 +346,7 @@ const BeneficiaryModal = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // Calculate age from birth date
-  const calculateAge = (birthDateStr) => {
-    if (!birthDateStr) return 0;
-    
-    const birthDate = new Date(birthDateStr);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
+
 
   // Reset form to initial state
   const resetForm = () => {
@@ -388,7 +376,7 @@ const BeneficiaryModal = ({
           birthDate: formData.birthDate,
           maritalStatus: formData.maritalStatus,
           cellphone: formData.cellphone,
-          age: age,
+          age,
           picture: formData.picture
         };
         

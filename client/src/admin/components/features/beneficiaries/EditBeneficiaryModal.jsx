@@ -1,6 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import { useAddressData } from '../../../hooks/useAddressData';
+import { calculateAge } from '../../../utils/age';
 
 // Common styles
 const getCommonStyles = () => ({
@@ -314,18 +315,7 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const calculateAge = (birthDateStr) => {
-    const today = new Date();
-    const birthDate = new Date(birthDateStr);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -337,7 +327,9 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
     setIsSubmitting(true);
 
     try {
-      // Do not send age
+      // Calculate age
+      const age = calculateAge(formData.birthDate);
+      
       const updateData = {
         firstName: formData.firstName,
         middleName: formData.middleName,
@@ -348,6 +340,7 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
         province: formData.province,
         gender: formData.gender,
         birthDate: formData.birthDate,
+        age,
         maritalStatus: formData.maritalStatus,
         cellphone: formData.cellphone,
         picture: formData.picture

@@ -6,7 +6,7 @@ import {
   FaLeaf,
   FaClipboardList 
 } from 'react-icons/fa';
-import Button from '../../ui/Buttons';
+import Button from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';

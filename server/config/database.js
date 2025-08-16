@@ -31,7 +31,6 @@ const initializeDatabase = async () => {
     await createDatabaseConnection();
     await createTables();
     await backfillBeneficiaryAges();
-    await addMissingColumns(); // Call the new function here
   } catch (error) {
     console.error('Database initialization failed:', error.message);
     throw error;
@@ -159,23 +158,6 @@ const backfillBeneficiaryAges = async () => {
   }
 };
 
-// Add missing columns to existing tables
-const addMissingColumns = async () => {
-  try {
-    // Check if plot column exists in crop_status table
-    const [columns] = await getPromisePool().query('SHOW COLUMNS FROM crop_status LIKE "plot"');
-    if (columns.length === 0) {
-      console.log('Adding plot column to crop_status table...');
-      await getPromisePool().query('ALTER TABLE crop_status ADD COLUMN plot VARCHAR(255) NULL AFTER dead_crops');
-      console.log('plot column added successfully to crop_status table.');
-    } else {
-      console.log('plot column already exists in crop_status table.');
-    }
-  } catch (error) {
-    console.error('Error adding missing columns:', error.message);
-    // Don't throw error here as this is not critical for startup
-  }
-};
 
 module.exports = {
   getPromisePool,
@@ -183,6 +165,5 @@ module.exports = {
   createDatabase,
   createDatabaseConnection,
   createTables,
-  backfillBeneficiaryAges,
-  addMissingColumns
+  backfillBeneficiaryAges
 };
