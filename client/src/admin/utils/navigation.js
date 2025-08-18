@@ -1,22 +1,30 @@
 // Function to get active page from URL
 export const getActiveFromPath = (pathname) => {
+  let result;
   switch (pathname) {
     case '/dashboard':
-      return 'Dashboard';
+      result = 'Dashboard';
+      break;
     case '/map-monitoring':
-      return 'Map Monitoring';
+      result = 'Map Monitoring';
+      break;
     case '/beneficiaries':
     case '/beneficiaries/personal-details':
-      return 'Personal Details';
+      result = 'Personal Details';
+      break;
     case '/beneficiaries/seedling-records':
-      return 'Seedling Records';
+      result = 'Seedling Records';
+      break;
     case '/beneficiaries/crop-status':
-      return 'Crop Status';
+      result = 'Crop Status';
+      break;
     case '/reports':
-      return 'Reports';
+      result = 'Reports';
+      break;
     default:
-      return 'Dashboard';
+      result = 'Dashboard';
   }
+  return result;
 };
 
 // Function to navigate to URL based on active page
@@ -27,6 +35,10 @@ export const navigateToPage = (page, navigate) => {
       break;
     case 'Map Monitoring':
       navigate('/map-monitoring');
+      break;
+    case 'Coffee Beneficiaries':
+      // When clicking the parent category, navigate to Personal Details by default
+      navigate('/beneficiaries/personal-details');
       break;
     case 'Personal Details':
       navigate('/beneficiaries/personal-details');

@@ -6,9 +6,9 @@ import {
   FaLeaf,
   FaClipboardList 
 } from 'react-icons/fa';
+import { PiFileXLight } from "react-icons/pi";
 import Button from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
-import LoadingSpinner from '../../ui/LoadingSpinner';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
 import DeleteCropStatusModal from '../../features/crop-status/DeleteCropStatusModal';
 import ViewCropStatusModal from '../../features/crop-status/ViewCropStatusModal';
@@ -20,15 +20,15 @@ const NoDataIcon = ({ type = 'default', size = '48px', color = '#6c757d' }) => {
     switch (type) {
       case 'beneficiaries':
       case 'personal':
-        return <FaUserFriends size={size} color={color} />;
+        return <PiFileXLight size={size} color={color} />;
       case 'seedlings':
       case 'seedling':
-        return <FaSeedling size={size} color={color} />;
+        return <PiFileXLight size={size} color={color} />;
       case 'crops':
       case 'crop':
-        return <FaLeaf size={size} color={color} />;
+        return <PiFileXLight size={size} color={color} />;
       default:
-        return <FaClipboardList size={size} color={color} />;
+        return <PiFileXLight size={size} color={color} />;
     }
   };
 
@@ -375,7 +375,7 @@ const CropStatusTable = () => {
   };
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
         <div>
           <h2 style={{ color: '#2c5530', marginBottom: '0.2rem', fontSize: '1.4rem' }}>Crop Status</h2>
@@ -391,7 +391,7 @@ const CropStatusTable = () => {
       <div style={{ overflowX: 'auto', marginTop: '1rem', flex: '1', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
           <div style={styles.emptyState}>
-            <LoadingSpinner color="#2c5530" />
+            <div style={{ width: '35px', height: '35px', border: '3px solid #f3f3f3', borderTop: '3px solid #2c5530', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>Loading...</h3>
             <p style={{ color: '#6c757d', margin: '0', fontSize: '0.875rem' }}>Please wait while we fetch the crop status records.</p>
           </div>

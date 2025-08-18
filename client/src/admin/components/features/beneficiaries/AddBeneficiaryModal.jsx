@@ -1,7 +1,8 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, memo } from 'react';
 import { useAddressData } from '../../../hooks/useAddressData';
 import { calculateAge } from '../../../utils/age';
-import { generateBeneficiaryId } from '../../../utils/beneficiaryId';
+import { beneficiariesAPI } from '../../../services/api';
+import LoadingModal from '../../ui/LoadingModal';
 
 // Common styles
 const getCommonStyles = () => ({
@@ -171,7 +172,7 @@ const getInitialFormData = () => ({
   picture: null
 });
 
-// Data options
+// Data options (static)
 const getDataOptions = () => ({
   genderOptions: [
     { value: 'Male', label: 'Male' },
@@ -189,26 +190,21 @@ const getDataOptions = () => ({
 const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
   const [formData, setFormData] = useState(getInitialFormData());
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const styles = getCommonStyles();
   const options = getDataOptions();
-  
-  // Address data hook
   const {
     provinces,
     municipalities,
     barangays,
     loading: addressLoading,
-    error: addressError,
     loadMunicipalities,
     loadBarangays,
     resetMunicipalities,
     resetBarangays
   } = useAddressData();
-
-
-
-
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -222,25 +218,34 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
           [name]: file
         }));
       }
+    } else if (name === 'province') {
+      // When province changes, reset municipality and barangay, then load municipalities
+      setFormData(prev => ({
+        ...prev,
+        province: value,
+        municipality: '',
+        barangay: ''
+      }));
+      resetMunicipalities();
+      resetBarangays();
+      loadMunicipalities(value);
+    } else if (name === 'municipality') {
+      // When municipality changes, reset barangay, then load barangays
+      setFormData(prev => ({
+        ...prev,
+        municipality: value,
+        barangay: ''
+      }));
+      resetBarangays();
+      const provinceValue = formData.province;
+      if (provinceValue) {
+        loadBarangays(provinceValue, value);
+      }
     } else {
       setFormData(prev => ({
         ...prev,
         [name]: value
       }));
-      
-      // Handle cascading dropdowns
-      if (name === 'province') {
-        resetMunicipalities();
-        resetBarangays();
-        if (value) {
-          loadMunicipalities(value);
-        }
-      } else if (name === 'municipality') {
-        resetBarangays();
-        if (value && formData.province) {
-          loadBarangays(formData.province, value);
-        }
-      }
     }
     
     // Clear error when user starts typing
@@ -302,8 +307,6 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-
-
   // Reset form to initial state
   const resetForm = () => {
     setFormData(getInitialFormData());
@@ -316,14 +319,18 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
     
     if (validateForm()) {
       try {
-        // Generate beneficiary ID
-        const beneficiaryId = await generateBeneficiaryId(formData.firstName, formData.lastName);
-        
-        // Calculate age
-        const age = calculateAge(formData.birthDate);
-        
-        const newBeneficiary = {
-          beneficiaryId,
+        setSubmitting(true);
+        setSubmitError('');
+
+        // Calculate accurate age
+        const age = calculateAge(formData.birthDate) ?? 0;
+
+        // Generate beneficiary ID from server
+        const idResponse = await beneficiariesAPI.generateId(formData.firstName, formData.lastName);
+        const generatedBeneficiaryId = idResponse?.data?.beneficiaryId || `BEN-${Date.now()}`;
+
+        const payload = {
+          beneficiaryId: generatedBeneficiaryId,
           firstName: formData.firstName,
           middleName: formData.middleName,
           lastName: formData.lastName,
@@ -338,12 +345,24 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
           cellphone: formData.cellphone,
           picture: formData.picture
         };
-        
-        onSubmit(newBeneficiary);
+
+        // Save to database
+        const createResponse = await beneficiariesAPI.create(payload);
+        const createdData = createResponse?.data || {};
+
+        // Return created record to parent for UI update
+        onSubmit({
+          id: createdData.id,
+          beneficiaryId: createdData.beneficiaryId || generatedBeneficiaryId,
+          ...payload
+        });
+
         resetForm();
       } catch (error) {
-        console.error('Error preparing beneficiary data:', error);
-        // Handle error appropriately
+        console.error('Error saving beneficiary:', error);
+        setSubmitError(error?.message || 'Failed to save beneficiary.');
+      } finally {
+        setSubmitting(false);
       }
     }
   };
@@ -460,80 +479,78 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                 />
               </div>
 
-                             {/* Profile Picture Container */}
-               <div style={{
-                 minWidth: '200px',
-                 maxWidth: '200px',
-                 display: 'flex',
-                 flexDirection: 'column',
-                 alignItems: 'center',
-                 gap: '.5rem',
-                 marginTop: '1rem',
-                 padding: '1.5rem .6rem',
-                 backgroundColor: '#f8f9fa',
-                 borderRadius: '8px',
-                 border: '1px solid #e9ecef',
-                 boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-               }}>
-                 <div style={{
-                   width: '70px',
-                   height: '70px',
-                   borderRadius: '50%',
-                   backgroundColor: 'white',
-                   display: 'flex',
-                   alignItems: 'center',
-                   justifyContent: 'center',
-                   fontSize: '40px',
-                   border: '2px dashed #ced4da',
-                   overflow: 'hidden',
-                   transition: 'border-color 0.2s ease'
-                 }}>
-                   {formData.picture ? (
-                     <img
-                       src={URL.createObjectURL(formData.picture)}
-                       alt="Preview"
-                       style={{
-                         width: '100%',
-                         height: '100%',
-                         objectFit: 'cover',
-                         borderRadius: '50%'
-                       }}
-                     />
-                   ) : (
-                     <svg width="48" height="48" viewBox="0 0 24 24" fill="#6c757d">
-                       <circle cx="12" cy="8" r="4"/>
-                       <path d="M12 14c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4z"/>
-                     </svg>
-                   )}
-                 </div>
-                 
-                                   <div style={{ width: '100%', textAlign: 'center' }}>
-                    <input
-                      type="file"
-                      name="picture"
-                      accept="image/*"
-                      onChange={handleInputChange}
+              {/* Profile Picture Container */}
+              <div style={{
+                minWidth: '200px',
+                maxWidth: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '.5rem',
+                marginTop: '1rem',
+                padding: '1.5rem .6rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e9ecef',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{
+                  width: '70px',
+                  height: '70px',
+                  borderRadius: '50%',
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '40px',
+                  border: '2px dashed #ced4da',
+                  overflow: 'hidden',
+                  transition: 'border-color 0.2s ease'
+                }}>
+                  {formData.picture ? (
+                    <img
+                      src={URL.createObjectURL(formData.picture)}
+                      alt="Preview"
                       style={{
-                        width: '70%',
-                        display: 'block',
-                        margin: '0 auto 1rem auto',
-                        border: '1px solid var(--gray)',
-                        borderRadius: '4px',
-                        fontSize: '8px',
-                        background: 'white',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box',
-                        textAlign: 'center',
-                        padding: '4px'
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '50%'
                       }}
                     />
-                    <p style={{ fontSize: '8px', color: '#6c757d', marginBottom: '1rem' }}>
-                      Upload profile picture
-                    </p>
-                  </div>
-                 
-
-               </div>
+                  ) : (
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="#6c757d">
+                      <circle cx="12" cy="8" r="4"/>
+                      <path d="M12 14c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4z"/>
+                    </svg>
+                  )}
+                </div>
+                
+                <div style={{ width: '100%', textAlign: 'center' }}>
+                  <input
+                    type="file"
+                    name="picture"
+                    accept="image/*"
+                    onChange={handleInputChange}
+                    style={{
+                      width: '70%',
+                      display: 'block',
+                      margin: '0 auto 1rem auto',
+                      border: '1px solid var(--gray)',
+                      borderRadius: '4px',
+                      fontSize: '8px',
+                      background: 'white',
+                      cursor: 'pointer',
+                      boxSizing: 'border-box',
+                      textAlign: 'center',
+                      padding: '4px'
+                    }}
+                  />
+                  <p style={{ fontSize: '8px', color: '#6c757d', marginBottom: '1rem' }}>
+                    Upload profile picture
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -543,53 +560,35 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
               Address Information
             </h3>
             
-            {/* Address Error Display */}
-            {addressError && (
-              <div style={{
-                backgroundColor: '#f8d7da',
-                color: '#721c24',
-                padding: '10px',
-                borderRadius: '4px',
-                marginBottom: '1rem',
-                border: '1px solid #f5c6cb',
-                fontSize: '11px'
-              }}>
-                {addressError}
-              </div>
-            )}
-            
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <SelectField
                 name="province"
                 label="Province"
                 value={formData.province}
                 onChange={handleInputChange}
-                options={provinces}
+                options={provinces.map(p => ({ value: p, label: p }))}
                 required
                 error={errors.province}
-                disabled={addressLoading}
               />
               <SelectField
                 name="municipality"
                 label="Municipality"
                 value={formData.municipality}
                 onChange={handleInputChange}
-                options={municipalities}
+                options={municipalities.map(m => ({ value: m, label: m }))}
                 required
                 error={errors.municipality}
-                disabled={addressLoading || !formData.province}
-                placeholder={formData.province ? 'Select municipality' : 'Select province first'}
+                disabled={!formData.province || addressLoading}
               />
               <SelectField
                 name="barangay"
                 label="Barangay"
                 value={formData.barangay}
                 onChange={handleInputChange}
-                options={barangays}
+                options={barangays.map(b => ({ value: b, label: b }))}
                 required
                 error={errors.barangay}
-                disabled={addressLoading || !formData.municipality}
-                placeholder={formData.municipality ? 'Select barangay' : 'Select municipality first'}
+                disabled={!formData.municipality || addressLoading}
               />
               <InputField
                 name="purok"
@@ -658,7 +657,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                 </label>
                 <input
                   type="text"
-                  value={formData.birthDate ? calculateAge(formData.birthDate) : '—'}
+                  value={formData.birthDate ? (calculateAge(formData.birthDate) ?? '—') : '—'}
                   readOnly
                   style={{
                     ...styles.input,
@@ -681,6 +680,11 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
               required
               error={errors.cellphone}
             />
+            {submitError && (
+              <div style={{ color: 'var(--red)', fontSize: '12px', marginTop: '.5rem' }}>
+                {submitError}
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -708,6 +712,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
                 e.target.style.backgroundColor = 'white';
                 e.target.style.borderColor = 'var(--gray)';
               }}
+              disabled={submitting}
             >
               Cancel
             </button>
@@ -721,12 +726,14 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
               }}
               onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--emerald-green)'}
               onMouseLeave={(e) => e.target.style.backgroundColor = 'var(--dark-green)'}
+              disabled={submitting}
             >
-              Add Beneficiary
+              {submitting ? 'Saving...' : 'Add Beneficiary'}
             </button>
           </div>
         </form>
       </div>
+      <LoadingModal isOpen={submitting} title="Saving" message="Adding new beneficiary..." />
     </div>
   );
 };
@@ -783,5 +790,4 @@ select.custom-select-dropdown {
   scrollbar-color: #c1c1c1 #f1f1f1;
 }
 `}
-</style> 
-
+</style>

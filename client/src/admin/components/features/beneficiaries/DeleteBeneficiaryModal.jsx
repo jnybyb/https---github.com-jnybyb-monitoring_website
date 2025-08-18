@@ -1,5 +1,6 @@
 import React from 'react';
 import { HiOutlineTrash } from "react-icons/hi2";
+import { FaRegIdCard } from "react-icons/fa";
 
 const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => {
   if (!isOpen || !beneficiary) return null;
@@ -19,12 +20,13 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
     },
     modal: {
       backgroundColor: 'white',
-      borderRadius: '8px',
+      borderRadius: '12px',
       padding: '0',
       maxWidth: '350px',
       width: '90%',
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     },
     header: {
       display: 'flex',
@@ -35,12 +37,14 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
       background: 'white',
       position: 'sticky',
       top: 0,
-      zIndex: 10
+      zIndex: 10,
+      borderTopLeftRadius: '12px',
+      borderTopRightRadius: '12px'
     },
     title: {
       color: 'var(--black)',
       margin: 0,
-      fontSize: '1rem',
+      fontSize: '0.9rem',
       fontWeight: '600'
     },
     content: {
@@ -56,7 +60,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
     },
     message: {
       color: 'var(--black)',
-      fontSize: '14px',
+      fontSize: '12px',
       marginBottom: '1.5rem',
       lineHeight: '1.5'
     },
@@ -64,23 +68,50 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
       backgroundColor: '#f8f9fa',
       padding: '1rem',
       borderRadius: '6px',
-      marginBottom: '1.5rem',
-      border: '1px solid #e9ecef'
+      margin: '0 auto 1.5rem',
+      border: '1px solid #e9ecef',
+      display: 'inline-flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: '12px',
+      textAlign: 'left'
+    },
+    avatar: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '50%',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa',
+      border: '2px solid #e8f5e8'
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover'
+    },
+    avatarPlaceholder: {
+      fontSize: '18px'
     },
     beneficiaryId: {
       fontWeight: '600',
       color: 'var(--emerald-green)',
-      fontSize: '18px',
-      marginBottom: '0.5rem'
+      fontSize: '12px',
+      marginTop: '.5rem',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px'
     },
     beneficiaryName: {
       color: 'var(--black)',
-      fontSize: '16px',
+      fontSize: '17px',
       fontWeight: '500'
     },
     warning: {
       color: 'var(--red)',
-      fontSize: '12px',
+      fontSize: '11px',
       fontStyle: 'italic',
       marginBottom: '1.5rem'
     },
@@ -93,7 +124,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
       padding: '12px 24px',
       borderRadius: '6px',
       cursor: 'pointer',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '500',
       transition: 'all 0.2s ease',
       border: 'none'
@@ -129,7 +160,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
         <div style={styles.content}>
           {/* Warning Icon */}
           <div style={styles.icon}>
-            <HiOutlineTrash size={48} color="#dc3545" />
+            <HiOutlineTrash size={38} color="#dc3545" />
           </div>
 
           {/* Confirmation Message */}
@@ -139,11 +170,27 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
 
           {/* Beneficiary Information */}
           <div style={styles.beneficiaryInfo}>
-            <div style={styles.beneficiaryId}>
-              {beneficiary.beneficiaryId}
-            </div>
-            <div style={styles.beneficiaryName}>
-              {beneficiary.firstName} {beneficiary.middleName} {beneficiary.lastName}
+            {beneficiary.picture ? (
+              <div style={styles.avatar}>
+                <img
+                  src={`http://localhost:5000${beneficiary.picture}`}
+                  alt="Profile"
+                  style={styles.avatarImage}
+                />
+              </div>
+            ) : (
+              <div style={styles.avatar}>
+                <div style={styles.avatarPlaceholder}>👤</div>
+              </div>
+            )}
+            <div>
+              <div style={styles.beneficiaryName}>
+                {beneficiary.firstName} {beneficiary.middleName} {beneficiary.lastName}
+              </div>
+              <div style={styles.beneficiaryId}>
+                <FaRegIdCard size={12} /> {beneficiary.beneficiaryId}
+              </div>
+             
             </div>
           </div>
 
@@ -152,36 +199,7 @@ const DeleteBeneficiaryModal = ({ isOpen, onClose, onConfirm, beneficiary }) => 
             This action cannot be undone. All beneficiary data will be permanently deleted.
           </p>
           
-          {/* Related Records Warning */}
-          <div style={{
-            backgroundColor: '#fff3cd',
-            border: '1px solid #ffeaa7',
-            borderRadius: '6px',
-            padding: '1rem',
-            marginBottom: '1.5rem'
-          }}>
-            <p style={{
-              color: '#856404',
-              fontSize: '12px',
-              margin: '0',
-              fontWeight: '500',
-              textAlign: 'left'
-            }}>
-              <strong>⚠️ Related records will also be deleted:</strong>
-            </p>
-            <ul style={{
-              color: '#856404',
-              fontSize: '11px',
-              margin: '0.5rem 0 0 0',
-              paddingLeft: '1.5rem',
-              textAlign: 'left'
-            }}>
-              <li>Seedling records</li>
-              <li>Crop status surveys</li>
-              <li>Farm plot coordinates</li>
-              <li>Uploaded pictures</li>
-            </ul>
-          </div>
+          
 
           {/* Action Buttons */}
           <div style={styles.buttons}>

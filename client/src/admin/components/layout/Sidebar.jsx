@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   MdOutlineDashboard,
   MdDashboard,
@@ -22,18 +23,21 @@ import {
   BsClipboard2DataFill,
 } from 'react-icons/bs';
 import SidebarButtons from '../ui/SidebarButtons';
+import { getActiveFromPath, navigateToPage } from '../../utils/navigation';
 
 // Navigation items configuration with icons and subcategories
 const navItems = [
   { 
     label: 'Dashboard', 
     inactiveIcon: <MdOutlineDashboard />,
-    activeIcon: <MdDashboard />
+    activeIcon: <MdDashboard />,
+    path: '/dashboard'
   },
   { 
     label: 'Map Monitoring', 
     inactiveIcon: <RiMapPinLine />,
-    activeIcon: <RiMapPinFill />
+    activeIcon: <RiMapPinFill />,
+    path: '/map-monitoring'
   },
   { 
     label: 'Coffee Beneficiaries', 
@@ -44,29 +48,39 @@ const navItems = [
       { 
         label: 'Personal Details',
         inactiveIcon: <RiFolderUserLine />,
-        activeIcon: <RiFolderUserFill />
+        activeIcon: <RiFolderUserFill />,
+        path: '/beneficiaries/personal-details'
       },
       { 
         label: 'Seedling Records',
         inactiveIcon: <RiSeedlingLine />,
-        activeIcon: <RiSeedlingFill />
+        activeIcon: <RiSeedlingFill />,
+        path: '/beneficiaries/seedling-records'
       },
       { 
         label: 'Crop Status',
         inactiveIcon: <RiBarChartLine />,
-        activeIcon: <RiBarChartFill />
+        activeIcon: <RiBarChartFill />,
+        path: '/beneficiaries/crop-status'
       }
     ]
   },
   { 
     label: 'Reports', 
     inactiveIcon: <BsClipboard2Data />,
-    activeIcon: <BsClipboard2DataFill />
+    activeIcon: <BsClipboard2DataFill />,
+    path: '/reports'
   },
 ];
 
 // Sidebar component with expandable navigation
-const Sidebar = ({ active, setActive }) => {
+const Sidebar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get active page from current URL
+  const active = getActiveFromPath(location.pathname);
+  
   // Track which navigation items are expanded
   const [expandedItems, setExpandedItems] = useState(new Set());
 
@@ -86,25 +100,23 @@ const Sidebar = ({ active, setActive }) => {
   // Handle main navigation button clicks
   const handleMainButtonClick = (item) => {
     if (item.hasSubcategories) {
-      // For items with subcategories, set as active and toggle expansion
-      setActive(item.label);
+      // For items with subcategories, toggle expansion
       toggleExpanded(item.label);
     } else {
-      // For items without subcategories, set as active and close all expansions
-      setActive(item.label);
+      // For items without subcategories, navigate directly and close all expansions
+      navigateToPage(item.label, navigate);
       setExpandedItems(new Set());
     }
   };
 
   // Handle subcategory button clicks
   const handleSubButtonClick = (subItem, parentItem) => {
-    setActive(subItem.label);
+    navigateToPage(subItem.label, navigate);
+    // Ensure the parent item is expanded when a subcategory is clicked
     if (!isItemExpanded(parentItem.label)) {
       setExpandedItems(new Set([...expandedItems, parentItem.label]));
     }
   };
-
-
 
   // Main sidebar container styles
   const sidebarStyles = {
@@ -146,27 +158,36 @@ const Sidebar = ({ active, setActive }) => {
     width: '100%' 
   };
 
-
-
   return (
     <aside style={sidebarStyles}>
       <nav style={navStyles}>
         <ul style={navListStyles}>
           {navItems.map((item) => {
-            const isActive = active === item.label;
             const isExpanded = isItemExpanded(item.label);
             const hasActiveSubcategory = item.hasSubcategories && item.subcategories && 
               item.subcategories.some(subItem => active === subItem.label);
-            // Parent is active if it's the active item OR if one of its subcategories is active
-            const isParentActive = item.hasSubcategories ? (isActive || hasActiveSubcategory) : isActive;
+            
+            // Determine if this main button should be active
+            let isMainButtonActive = false;
+            
+            if (item.hasSubcategories) {
+              // For items with subcategories (like Coffee Beneficiaries)
+              // They are active if they are expanded OR if one of their subcategories is active
+              isMainButtonActive = isExpanded || hasActiveSubcategory;
+            } else {
+              // For items without subcategories, they are active only if they match the current active page
+              // AND no subcategories are currently expanded
+              const anySubcategoriesExpanded = expandedItems.size > 0;
+              isMainButtonActive = active === item.label && !anySubcategoriesExpanded;
+            }
 
             return (
               <li key={item.label} style={listItemStyles}>
                 <SidebarButtons
                   item={item}
-                  isActive={isActive}
+                  isActive={isMainButtonActive}
                   isExpanded={isExpanded}
-                  isParentActive={isParentActive}
+                  isParentActive={isMainButtonActive}
                   hasActiveSubcategory={hasActiveSubcategory}
                   active={active}
                   onMainButtonClick={handleMainButtonClick}

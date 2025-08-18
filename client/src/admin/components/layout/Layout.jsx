@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import MainContent from './MainContent';
 
 // Main layout component that structures the application with header, sidebar, and content
-const Layout = ({ children, active, setActive }) => {
+const Layout = ({ children }) => {
   // Layout dimensions for consistent spacing
   const headerHeight = '78px';
   const sidebarWidth = '245px'; 
@@ -61,7 +61,7 @@ const Layout = ({ children, active, setActive }) => {
 
       <div style={mainAreaStyles}>
         <div style={sidebarContainerStyles}>
-          <Sidebar active={active} setActive={setActive} />
+          <Sidebar />
         </div>
 
         <div style={contentContainerStyles}>

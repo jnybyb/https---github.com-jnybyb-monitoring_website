@@ -1,5 +1,4 @@
 import React, { useState, useEffect, memo } from 'react';
-import LoadingSpinner from '../../ui/LoadingSpinner';
 import { useAddressData } from '../../../hooks/useAddressData';
 import { calculateAge } from '../../../utils/age';
 
@@ -277,11 +276,11 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
     }
 
     // Auto-calculate age when birth date changes
-    if (name === 'birthDate' && value) {
-      const age = calculateAge(value);
+    if (name === 'birthDate') {
+      const computedAge = value ? calculateAge(value) : null;
       setFormData(prev => ({
         ...prev,
-        age: age.toString()
+        age: computedAge == null ? '' : String(computedAge)
       }));
     }
   };
@@ -711,7 +710,7 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
                 </label>
                 <input
                   type="text"
-                  value={formData.birthDate ? calculateAge(formData.birthDate) : '—'}
+                  value={formData.birthDate ? (calculateAge(formData.birthDate) ?? '—') : '—'}
                   readOnly
                   style={{
                     ...styles.input,
@@ -787,7 +786,7 @@ const EditBeneficiaryModal = ({ isOpen, onClose, onSubmit, beneficiary }) => {
             >
               {isSubmitting ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <LoadingSpinner color="white" />
+                  <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
                   Updating...
                 </div>
               ) : (

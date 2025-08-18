@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IoClose } from "react-icons/io5";
 import Button from '../../ui/BeneficiaryButtons';
-import LoadingSpinner from '../../ui/LoadingSpinner';
 import { beneficiariesAPI, handleAPIError } from '../../../services/api';
 
 const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit, record = null, isEdit = false }) => {
@@ -239,7 +238,12 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit, record = null, isEd
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e8f5e8' }}>
           <Button type="secondary" size="medium" onClick={handleClose} disabled={loading}>Cancel</Button>
           <Button type="primary" size="medium" onClick={handleSubmit} disabled={loading}>
-            {loading ? (<div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}><LoadingSpinner color="white" />Saving...</div>) : (isEdit ? 'Update Record' : 'Add Record')}
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                Saving...
+              </div>
+            ) : (isEdit ? 'Update Record' : 'Add Record')}
           </Button>
         </div>
       </div>
