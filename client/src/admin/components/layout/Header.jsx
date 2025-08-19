@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import coffeeLogo from '../../../assets/images/coffee crop logo.png';
 import { authAPI } from '../../services/api';
+import AlertModal from '../ui/AlertModal';
 
 // Header component with branding and user profile section
 const Header = () => {
@@ -11,6 +12,7 @@ const Header = () => {
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const userRef = useRef(null);
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
 
   const initials = user?.username ? user.username.slice(0,2).toUpperCase() : 'AD';
 
@@ -183,7 +185,7 @@ const Header = () => {
             minWidth: 160,
             zIndex: 20
           }}>
-            <button onClick={handleLogout} style={{
+            <button onClick={() => setConfirmLogoutOpen(true)} style={{
               width: '100%',
               textAlign: 'left',
               padding: '0.6rem 0.8rem',
@@ -195,6 +197,18 @@ const Header = () => {
           </div>
         ) : null}
       </div>
+      <AlertModal
+        isOpen={confirmLogoutOpen}
+        onClose={() => setConfirmLogoutOpen(false)}
+        type="warning"
+        title="Log out?"
+        message="Are you sure you want to log out of your admin session?"
+        showCancel={true}
+        cancelText="Cancel"
+        confirmText="Log out"
+        onConfirm={handleLogout}
+        maxWidth={420}
+      />
     </header>
   );
 };

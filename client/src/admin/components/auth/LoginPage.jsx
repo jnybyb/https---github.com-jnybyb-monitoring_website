@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../services/api';
 import coffeeLogo from '../../../assets/images/coffee crop logo.png';
 import bgImage from '../../../assets/images/bg1.png';
+import AlertModal from '../ui/AlertModal';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ username: '', password: '' });
   const [touched, setTouched] = useState({ username: false, password: false });
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [redirectAfterAlert, setRedirectAfterAlert] = useState(false);
 
   const validate = (values) => {
     const nextErrors = { username: '', password: '' };
@@ -57,7 +60,8 @@ const LoginPage = () => {
       if (res && res.token) {
         localStorage.setItem('auth_token', res.token);
         localStorage.setItem('auth_user', JSON.stringify(res.user));
-        navigate('/dashboard', { replace: true });
+        setRedirectAfterAlert(true);
+        setAlertOpen(true);
       }
     } catch (err) {
       setError(err.message || 'Login failed');
@@ -133,6 +137,13 @@ const LoginPage = () => {
   const fieldError = { color: '#b00020', fontSize: '0.85rem', marginTop: '-0.5rem', marginBottom: '0.5rem' };
   const headerWrap = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' };
   const logo = { height: 56, width: 'auto' };
+  
+  const handleAlertClose = () => {
+    setAlertOpen(false);
+    if (redirectAfterAlert) {
+      navigate('/dashboard', { replace: true });
+    }
+  };
 
   return (
     <div style={container}>
@@ -199,6 +210,15 @@ const LoginPage = () => {
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
+      <AlertModal
+        isOpen={alertOpen}
+        onClose={handleAlertClose}
+        type="success"
+        title="Login Successful"
+        message="Welcome back! Redirecting to your dashboard..."
+        autoClose={true}
+        autoCloseDelay={1500}
+      />
     </div>
   );
 };

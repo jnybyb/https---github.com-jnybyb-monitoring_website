@@ -12,7 +12,8 @@ const AlertModal = ({
   onConfirm,
   onCancel,
   autoClose = false,
-  autoCloseDelay = 3000
+  autoCloseDelay = 3000,
+  maxWidth = 380
 }) => {
   React.useEffect(() => {
     if (isOpen && autoClose && !showCancel) {
@@ -105,7 +106,7 @@ const AlertModal = ({
         style={{
           backgroundColor: 'white',
           borderRadius: '10px',
-          maxWidth: '250px',
+          maxWidth: `${maxWidth}px`,
           width: '100%',
           boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
           overflow: 'hidden',
