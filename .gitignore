@@ -1,0 +1,55 @@
+# Node
+node_modules/
+logs
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+client/dist/
+client/.vite/
+server/dist/
+server/build/
+
+# Vite
+.vite/
+
+# Environment files
+.env
+*.env
+*.env.*
+server/.env
+server/.env.*
+client/.env
+client/.env.*
+
+# Uploads and generated assets
+server/uploads/
+client/uploads/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+*.local
+
+# Caches / temp
+.cache/
+.tmp/
+tmp/
+temp/
+npm-cache/
+.eslintcache
+
+

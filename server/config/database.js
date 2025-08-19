@@ -9,9 +9,9 @@ const sqlQueries = fs.readFileSync(path.join(__dirname, 'db_queries.sql'), 'utf8
 // Database configuration without database name for initial connection
 const initialDbConfig = {
   host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 3307,
+  port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'Coffee_Monitoring',
+  password: process.env.DB_PASSWORD || '',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

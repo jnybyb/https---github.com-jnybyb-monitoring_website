@@ -191,5 +191,10 @@
     overflow: hidden;
   }
 
+  /* Ensure Montserrat is used for most text and controls */
+  body, p, span, label, input, button, select, textarea, table, th, td, a, li {
+    font-family: var(--font-main), Arial, sans-serif;
+  }
+
 
   

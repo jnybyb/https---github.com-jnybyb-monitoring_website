@@ -30,6 +30,16 @@ class BaseController {
       }
     };
   }
+
+  // Send 401 Unauthorized
+  static sendUnauthorized(res, message = 'Unauthorized') {
+    res.status(401).json({ error: message });
+  }
+
+  // Send 403 Forbidden
+  static sendForbidden(res, message = 'Forbidden') {
+    res.status(403).json({ error: message });
+  }
 }
 
 module.exports = BaseController;

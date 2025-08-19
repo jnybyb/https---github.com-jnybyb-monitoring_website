@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './components/auth/LoginPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Import separate page components
 import AdminDashboard from './Admin_Dashboard';
@@ -14,13 +16,16 @@ const App = () => {
         {/* Default route */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
+        {/* Auth */}
+        <Route path="/login" element={<LoginPage />} />
+
         {/* All routes go through AdminDashboard to maintain sidebar and header */}
-        <Route path="/dashboard" element={<AdminDashboard />} />
-        <Route path="/map-monitoring" element={<AdminDashboard />} />
-        <Route path="/beneficiaries/personal-details" element={<AdminDashboard />} />
-        <Route path="/beneficiaries/seedling-records" element={<AdminDashboard />} />
-        <Route path="/beneficiaries/crop-status" element={<AdminDashboard />} />
-        <Route path="/reports" element={<AdminDashboard />} />
+        <Route path="/dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/map-monitoring" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/beneficiaries/personal-details" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/beneficiaries/seedling-records" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/beneficiaries/crop-status" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
 
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -6,10 +6,16 @@ const cropStatusRouter = require('./cropStatus');
 const farmPlotsRouter = require('./farmPlots');
 const addressesRouter = require('./addresses');
 const statisticsRouter = require('./statistics');
+const authRouter = require('./auth');
+const { authenticate, requireAdmin } = require('../utils/auth');
 
 const router = express.Router();
 
-// API base
+// Public auth endpoints
+router.use('/auth', authRouter);
+
+// Protected admin API
+router.use(authenticate, requireAdmin);
 router.use('/beneficiaries', beneficiariesRouter);
 router.use('/seedlings', seedlingsRouter);
 router.use('/crop-status', cropStatusRouter);

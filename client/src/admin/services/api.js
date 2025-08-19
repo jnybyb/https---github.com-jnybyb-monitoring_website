@@ -1,5 +1,13 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
+const getAuthToken = () => {
+  try {
+    return localStorage.getItem('auth_token');
+  } catch (_) {
+    return null;
+  }
+};
+
 // Helper function to handle API errors
 const handleAPIError = (error) => {
   console.error('API Error:', error);
@@ -25,9 +33,11 @@ const handleAPIError = (error) => {
 // Generic API request function
 const apiRequest = async (endpoint, options = {}) => {
   try {
+    const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers
       },
       ...options
@@ -35,6 +45,15 @@ const apiRequest = async (endpoint, options = {}) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        try {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        } catch (_) {}
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+      }
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
@@ -47,14 +66,28 @@ const apiRequest = async (endpoint, options = {}) => {
 // Generic API request function for file uploads
 const apiRequestWithFile = async (endpoint, formData, options = {}) => {
   try {
+    const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: options.method || 'POST',
       body: formData,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers || {})
+      },
       ...options
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        try {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+        } catch (_) {}
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login');
+        }
+      }
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
@@ -206,3 +239,12 @@ export const statisticsAPI = {
 export const testAPI = async () => apiRequest('/health');
 
 export { handleAPIError }; 
+
+// Auth API
+export const authAPI = {
+  login: async (username, password) => apiRequest('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password })
+  }),
+  me: async () => apiRequest('/auth/me')
+};

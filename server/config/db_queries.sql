@@ -2,6 +2,15 @@ CREATE DATABASE IF NOT EXISTS coffee_monitoring;
 
 USE coffee_monitoring;
 
+-- Admin users for authentication and authorization
+CREATE TABLE IF NOT EXISTS admins (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('admin') NOT NULL DEFAULT 'admin',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS beneficiary_details (
   id INT AUTO_INCREMENT PRIMARY KEY,
   beneficiary_id VARCHAR(10) NOT NULL UNIQUE,

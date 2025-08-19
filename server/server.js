@@ -2,12 +2,14 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, 'config.env') });
 
 const { initializeDatabase } = require('./config/database');
 const apiRouter = require('./routes');
+const { getPromisePool } = require('./config/database');
 
 const app = express();
 
@@ -39,6 +41,23 @@ const PORT = process.env.PORT || 5000;
 (async () => {
   try {
     await initializeDatabase();
+    // Seed default admin if not exists
+    try {
+      const [rows] = await getPromisePool().query('SELECT COUNT(*) AS cnt FROM admins');
+      const exists = rows && rows[0] && rows[0].cnt > 0;
+      if (!exists) {
+        const username = process.env.ADMIN_USERNAME || 'admin';
+        const password = process.env.ADMIN_PASSWORD || 'admin123';
+        const hash = await bcrypt.hash(password, 10);
+        await getPromisePool().query(
+          'INSERT INTO admins (username, password_hash, role) VALUES (?, ?, ?)',
+          [username, hash, 'admin']
+        );
+        console.log(`Seeded default admin user: ${username}`);
+      }
+    } catch (seedErr) {
+      console.error('Failed to seed admin user:', seedErr.message);
+    }
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });

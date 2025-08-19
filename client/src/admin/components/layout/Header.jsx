@@ -1,8 +1,51 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import coffeeLogo from '../../../assets/images/coffee crop logo.png';
+import { authAPI } from '../../services/api';
 
 // Header component with branding and user profile section
 const Header = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('auth_user') || 'null'); } catch { return null; }
+  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const userRef = useRef(null);
+
+  const initials = user?.username ? user.username.slice(0,2).toUpperCase() : 'AD';
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await authAPI.me();
+        if (mounted && res && res.user) {
+          setUser(res.user);
+          try { localStorage.setItem('auth_user', JSON.stringify(res.user)); } catch {}
+        }
+      } catch {
+        // If token invalid, navigate to login (api layer also redirects)
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!userRef.current) return;
+      if (!userRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, []);
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+    } catch {}
+    navigate('/login', { replace: true });
+  };
   // Main header container with shadow and fixed positioning
   const headerStyles = {
     background: 'var(--white)',
@@ -77,6 +120,13 @@ const Header = () => {
     fontFamily: 'var(--font-main)'
   };
 
+  const userNameStyles = {
+    fontWeight: 700,
+    fontSize: '0.95rem',
+    color: 'var(--primary-green)',
+    fontFamily: 'var(--font-main)'
+  };
+
   // User avatar with initials
   const avatarStyles = {
     width: 50,
@@ -111,15 +161,39 @@ const Header = () => {
         </div>
       </div>
 
-      <div style={userContainerStyles}>
-        <div style={userInfoStyles}>
-          <span style={userRoleStyles}>
-            Administrator
-          </span>
+      <div style={{ position: 'relative' }} ref={userRef}>
+        <div style={userContainerStyles}>
+          <div style={{ ...userInfoStyles, cursor: 'pointer' }} onClick={() => setMenuOpen((v) => !v)}>
+            <span style={userNameStyles}>{user?.username || 'Admin'}</span>
+            <span style={userRoleStyles}>
+              {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Administrator'}
+            </span>
+          </div>
+          <div style={{ ...avatarStyles, cursor: 'pointer' }} onClick={() => setMenuOpen((v) => !v)}>{initials}</div>
         </div>
-        <div style={avatarStyles}>
-          AP
-        </div>
+        {menuOpen ? (
+          <div style={{
+            position: 'absolute',
+            right: 8,
+            top: 'calc(100% + 8px)',
+            background: 'white',
+            border: '1px solid #e9ecef',
+            borderRadius: 8,
+            boxShadow: '0 8px 16px var(--shadow-color)',
+            minWidth: 160,
+            zIndex: 20
+          }}>
+            <button onClick={handleLogout} style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '0.6rem 0.8rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-main)'
+            }}>Logout</button>
+          </div>
+        ) : null}
       </div>
     </header>
   );
