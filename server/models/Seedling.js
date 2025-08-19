@@ -6,13 +6,15 @@ class Seedling {
     return rows.map(r => ({
       id: r.id,
       beneficiaryId: r.beneficiary_id,
-      received: r.received,
-      planted: r.planted,
-      hectares: Number(r.hectares),
+      received: r.received || 0,
+      dateReceived: r.date_received,
+      planted: r.planted || 0,
+      hectares: r.hectares ? parseFloat(r.hectares) : 0,
+      plot: r.plot,
       dateOfPlantingStart: r.date_of_planting,
       dateOfPlantingEnd: r.date_of_planting_end || null,
       gps: r.gps,
-      dateReceived: r.created_at
+      createdAt: r.created_at
     }));
   }
 
@@ -24,13 +26,15 @@ class Seedling {
     return {
       id: r.id,
       beneficiaryId: r.beneficiary_id,
-      received: r.received,
-      planted: r.planted,
-      hectares: Number(r.hectares),
+      received: r.received || 0,
+      dateReceived: r.date_received,
+      planted: r.planted || 0,
+      hectares: r.hectares ? parseFloat(r.hectares) : 0,
+      plot: r.plot,
       dateOfPlantingStart: r.date_of_planting,
       dateOfPlantingEnd: r.date_of_planting_end || null,
       gps: r.gps,
-      dateReceived: r.created_at
+      createdAt: r.created_at
     };
   }
 
@@ -38,14 +42,61 @@ class Seedling {
     const dateStart = seedlingData.dateOfPlantingStart || seedlingData.dateOfPlanting || null;
     const dateEnd = seedlingData.dateOfPlantingEnd || null;
     
+    // Ensure proper date formatting for dateReceived
+    let dateReceived = new Date().toISOString().split('T')[0]; // Default to today
+    if (seedlingData.dateReceived && seedlingData.dateReceived.trim() !== '') {
+      try {
+        // Convert any date format to YYYY-MM-DD
+        const date = new Date(seedlingData.dateReceived);
+        if (!isNaN(date.getTime())) {
+          dateReceived = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error parsing dateReceived:', error);
+      }
+    }
+    
+    // Validate and convert numeric fields with proper error handling
+    const received = parseInt(seedlingData.received);
+    const planted = parseInt(seedlingData.planted);
+    const hectares = parseFloat(seedlingData.hectares);
+    
+    // Check for invalid numeric values
+    if (isNaN(received) || received <= 0) {
+      throw new Error('Received seedlings must be a valid positive number');
+    }
+    if (isNaN(planted) || planted <= 0) {
+      throw new Error('Planted seedlings must be a valid positive number');
+    }
+    if (isNaN(hectares) || hectares <= 0) {
+      throw new Error('Hectares must be a valid positive number');
+    }
+    
+    // Validate that planted doesn't exceed received
+    if (planted > received) {
+      throw new Error('Planted seedlings cannot exceed received seedlings');
+    }
+    
+    console.log('Creating seedling record with validated data:', {
+      beneficiaryId: seedlingData.beneficiaryId,
+      received,
+      planted,
+      hectares,
+      dateReceived,
+      dateStart,
+      dateEnd
+    });
+    
     const sql = `INSERT INTO seedling_records 
-      (beneficiary_id, received, planted, hectares, date_of_planting, date_of_planting_end, gps)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      (beneficiary_id, received, date_received, planted, hectares, plot, date_of_planting, date_of_planting_end, gps)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     const params = [
       seedlingData.beneficiaryId,
-      Number(seedlingData.received),
-      Number(seedlingData.planted),
-      Number(seedlingData.hectares),
+      received,
+      dateReceived,
+      planted,
+      hectares,
+      seedlingData.plot || null,
       dateStart,
       dateEnd,
       seedlingData.gps || null
@@ -59,14 +110,62 @@ class Seedling {
     const dateStart = seedlingData.dateOfPlantingStart || seedlingData.dateOfPlanting || null;
     const dateEnd = seedlingData.dateOfPlantingEnd || null;
     
+    // Ensure proper date formatting for dateReceived
+    let dateReceived = new Date().toISOString().split('T')[0]; // Default to today
+    if (seedlingData.dateReceived && seedlingData.dateReceived.trim() !== '') {
+      try {
+        // Convert any date format to YYYY-MM-DD
+        const date = new Date(seedlingData.dateReceived);
+        if (!isNaN(date.getTime())) {
+          dateReceived = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error parsing dateReceived:', error);
+      }
+    }
+    
+    // Validate and convert numeric fields with proper error handling
+    const received = parseInt(seedlingData.received);
+    const planted = parseInt(seedlingData.planted);
+    const hectares = parseFloat(seedlingData.hectares);
+    
+    // Check for invalid numeric values
+    if (isNaN(received) || received <= 0) {
+      throw new Error('Received seedlings must be a valid positive number');
+    }
+    if (isNaN(planted) || planted <= 0) {
+      throw new Error('Planted seedlings must be a valid positive number');
+    }
+    if (isNaN(hectares) || hectares <= 0) {
+      throw new Error('Hectares must be a valid positive number');
+    }
+    
+    // Validate that planted doesn't exceed received
+    if (planted > received) {
+      throw new Error('Planted seedlings cannot exceed received seedlings');
+    }
+    
+    console.log('Updating seedling record with validated data:', {
+      id,
+      beneficiaryId: seedlingData.beneficiaryId,
+      received,
+      planted,
+      hectares,
+      dateReceived,
+      dateStart,
+      dateEnd
+    });
+    
     const sql = `UPDATE seedling_records SET 
-      beneficiary_id = ?, received = ?, planted = ?, hectares = ?, date_of_planting = ?, date_of_planting_end = ?, gps = ?
+      beneficiary_id = ?, received = ?, date_received = ?, planted = ?, hectares = ?, plot = ?, date_of_planting = ?, date_of_planting_end = ?, gps = ?
       WHERE id = ?`;
     const params = [
       seedlingData.beneficiaryId,
-      Number(seedlingData.received),
-      Number(seedlingData.planted),
-      Number(seedlingData.hectares),
+      received,
+      dateReceived,
+      planted,
+      hectares,
+      seedlingData.plot || null,
       dateStart,
       dateEnd,
       seedlingData.gps || null,

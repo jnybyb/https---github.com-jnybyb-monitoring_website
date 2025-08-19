@@ -19,12 +19,13 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
     },
     modal: {
       backgroundColor: 'white',
-      borderRadius: '8px',
+      borderRadius: '12px',
       padding: '0',
       maxWidth: '350px',
       width: '90%',
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     },
     header: {
       display: 'flex',
@@ -35,12 +36,14 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
       background: 'white',
       position: 'sticky',
       top: 0,
-      zIndex: 10
+      zIndex: 10,
+      borderTopLeftRadius: '12px',
+      borderTopRightRadius: '12px'
     },
     title: {
       color: 'var(--black)',
       margin: 0,
-      fontSize: '1rem',
+      fontSize: '0.9rem',
       fontWeight: '600'
     },
     content: {
@@ -48,7 +51,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
       textAlign: 'center'
     },
     icon: {
-      fontSize: '48px',
+      fontSize: '38px',
       color: 'var(--red)',
       marginBottom: '1rem',
       display: 'flex',
@@ -56,7 +59,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
     },
     message: {
       color: 'var(--black)',
-      fontSize: '14px',
+      fontSize: '12px',
       marginBottom: '1.5rem',
       lineHeight: '1.5'
     },
@@ -64,7 +67,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
       backgroundColor: '#f8f9fa',
       padding: '1rem',
       borderRadius: '6px',
-      marginBottom: '1.5rem',
+      margin: '0 auto 1.5rem',
       border: '1px solid #e9ecef'
     },
     surveyDate: {
@@ -80,7 +83,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
     },
     warning: {
       color: 'var(--red)',
-      fontSize: '12px',
+      fontSize: '11px',
       fontStyle: 'italic',
       marginBottom: '1.5rem'
     },
@@ -93,7 +96,7 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
       padding: '12px 24px',
       borderRadius: '6px',
       cursor: 'pointer',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '500',
       transition: 'all 0.2s ease',
       border: 'none'
@@ -120,46 +123,19 @@ const DeleteCropStatusModal = ({ isOpen, onClose, onConfirm, record }) => {
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
-        {/* Modal Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>Delete Crop Status Record</h2>
         </div>
 
-        {/* Modal Content */}
         <div style={styles.content}>
-          {/* Warning Icon */}
           <div style={styles.icon}>
-            <HiOutlineTrash size={48} color="#dc3545" />
+            <HiOutlineTrash size={38} color="#dc3545" />
           </div>
 
-          {/* Confirmation Message */}
-          <p style={styles.message}>
-            Are you sure you want to delete this crop status record?
-          </p>
+          <p style={styles.message}>Are you sure you want to delete this crop status record?</p>
 
-          {/* Record Information */}
-          <div style={styles.recordInfo}>
-            <div style={styles.surveyDate}>
-              {new Date(record.surveyDate).toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}
-            </div>
-            <div style={styles.recordDetails}>
-              <div>Surveyer: {record.surveyer}</div>
-              <div>Beneficiary ID: {record.beneficiaryId}</div>
-              <div>Alive Crops: {record.aliveCrops}</div>
-              <div>Dead Crops: {record.deadCrops}</div>
-            </div>
-          </div>
+          <p style={styles.warning}>This action cannot be undone. All crop status data will be permanently deleted.</p>
 
-          {/* Warning Message */}
-          <p style={styles.warning}>
-            This action cannot be undone. All crop status data will be permanently deleted.
-          </p>
-
-          {/* Action Buttons */}
           <div style={styles.buttons}>
             <button
               type="button"

@@ -57,7 +57,14 @@ const apiRequest = async (endpoint, options = {}) => {
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Handle BaseController response format
+    if (result && result.success && result.data !== undefined) {
+      return result.data;
+    }
+    
+    return result;
   } catch (error) {
     throw handleAPIError(error);
   }
@@ -91,7 +98,14 @@ const apiRequestWithFile = async (endpoint, formData, options = {}) => {
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    
+    // Handle BaseController response format
+    if (result && result.success && result.data !== undefined) {
+      return result.data;
+    }
+    
+    return result;
   } catch (error) {
     throw handleAPIError(error);
   }
@@ -136,11 +150,44 @@ export const beneficiariesAPI = {
 export const seedlingsAPI = {
   getAll: async () => apiRequest('/seedlings'),
   create: async (record) => {
+    // Validate numeric fields before sending
+    const received = parseInt(record.received);
+    const planted = parseInt(record.planted);
+    const hectares = parseFloat(record.hectares);
+    
+    if (isNaN(received) || received <= 0) {
+      throw new Error('Received seedlings must be a valid positive number');
+    }
+    if (isNaN(planted) || planted <= 0) {
+      throw new Error('Planted seedlings must be a valid positive number');
+    }
+    if (isNaN(hectares) || hectares <= 0) {
+      throw new Error('Hectares must be a valid positive number');
+    }
+    if (planted > received) {
+      throw new Error('Planted seedlings cannot exceed received seedlings');
+    }
+    
+    // Ensure proper date formatting for dateReceived
+    let dateReceived = new Date().toISOString().split('T')[0]; // Default to today
+    if (record.dateReceived && record.dateReceived.trim() !== '') {
+      try {
+        const date = new Date(record.dateReceived);
+        if (!isNaN(date.getTime())) {
+          dateReceived = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error parsing dateReceived:', error);
+      }
+    }
+    
     const payload = {
       beneficiaryId: record.beneficiaryId,
-      received: record.received,
-      planted: record.planted,
-      hectares: record.hectares,
+      received,
+      dateReceived,
+      planted,
+      hectares,
+      plot: record.plot,
       dateOfPlantingStart: record.dateOfPlantingStart || record.dateOfPlanting,
       dateOfPlantingEnd: record.dateOfPlantingEnd || null,
       gps: record.gps || null
@@ -151,11 +198,44 @@ export const seedlingsAPI = {
     });
   },
   update: async (id, record) => {
+    // Validate numeric fields before sending
+    const received = parseInt(record.received);
+    const planted = parseInt(record.planted);
+    const hectares = parseFloat(record.hectares);
+    
+    if (isNaN(received) || received <= 0) {
+      throw new Error('Received seedlings must be a valid positive number');
+    }
+    if (isNaN(planted) || planted <= 0) {
+      throw new Error('Planted seedlings must be a valid positive number');
+    }
+    if (isNaN(hectares) || hectares <= 0) {
+      throw new Error('Hectares must be a valid positive number');
+    }
+    if (planted > received) {
+      throw new Error('Planted seedlings cannot exceed received seedlings');
+    }
+    
+    // Ensure proper date formatting for dateReceived
+    let dateReceived = new Date().toISOString().split('T')[0]; // Default to today
+    if (record.dateReceived && record.dateReceived.trim() !== '') {
+      try {
+        const date = new Date(record.dateReceived);
+        if (!isNaN(date.getTime())) {
+          dateReceived = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error('Error parsing dateReceived:', error);
+      }
+    }
+    
     const payload = {
       beneficiaryId: record.beneficiaryId,
-      received: record.received,
-      planted: record.planted,
-      hectares: record.hectares,
+      received,
+      dateReceived,
+      planted,
+      hectares,
+      plot: record.plot,
       dateOfPlantingStart: record.dateOfPlantingStart || record.dateOfPlanting,
       dateOfPlantingEnd: record.dateOfPlantingEnd || null,
       gps: record.gps || null
@@ -179,6 +259,9 @@ export const cropStatusAPI = {
     formData.append('beneficiaryId', record.beneficiaryId);
     formData.append('aliveCrops', record.aliveCrops);
     formData.append('deadCrops', record.deadCrops ?? 0);
+    if (record.plot !== undefined && record.plot !== null) {
+      formData.append('plot', record.plot);
+    }
     if (Array.isArray(record.pictures)) {
       record.pictures.forEach(file => {
         if (file instanceof File) formData.append('pictures', file);
@@ -193,6 +276,9 @@ export const cropStatusAPI = {
     formData.append('beneficiaryId', record.beneficiaryId);
     formData.append('aliveCrops', record.aliveCrops);
     formData.append('deadCrops', record.deadCrops ?? 0);
+    if (record.plot !== undefined && record.plot !== null) {
+      formData.append('plot', record.plot);
+    }
     
     // Handle existing pictures for edit mode
     if (record.existingPictures && Array.isArray(record.existingPictures)) {

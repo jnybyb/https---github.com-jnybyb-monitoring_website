@@ -7,9 +7,10 @@ import {
   FaClipboardList 
 } from 'react-icons/fa';
 import { PiFileXLight } from "react-icons/pi";
-import Button from '../../ui/BeneficiaryButtons';
+import { Button } from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
+import EditCropStatusModal from '../../features/crop-status/EditCropStatusModal';
 import DeleteCropStatusModal from '../../features/crop-status/DeleteCropStatusModal';
 import ViewCropStatusModal from '../../features/crop-status/ViewCropStatusModal';
 import { cropStatusAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
@@ -460,12 +461,11 @@ const CropStatusTable = () => {
       <AddCropStatusModal isOpen={isAddModalOpen} onClose={handleAddModalClose} onSubmit={handleAddModalSubmit} />
 
       {isEditModalOpen && selectedRecord && (
-        <AddCropStatusModal
+        <EditCropStatusModal
           isOpen={isEditModalOpen}
           onClose={handleEditModalClose}
           onSubmit={handleEditModalSubmit}
           record={selectedRecord}
-          isEdit={true}
         />
       )}
 

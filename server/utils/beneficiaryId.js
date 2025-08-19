@@ -48,7 +48,15 @@ const generateBeneficiaryId = async (firstName, lastName) => {
     const formattedNumber = nextNumber.toString().padStart(3, '0');
     
     // Return with prefix from first letters of name
-    return `${prefix}${formattedNumber}`;
+    const generatedId = `${prefix}${formattedNumber}`;
+    console.log(`Generated beneficiary ID: "${generatedId}" (length: ${generatedId.length})`);
+    
+    // Validate the generated ID length
+    if (generatedId.length > 20) {
+      throw new Error(`Generated beneficiary ID "${generatedId}" is too long (${generatedId.length} characters). Maximum allowed is 20.`);
+    }
+    
+    return generatedId;
   } catch (error) {
     console.error('Error generating beneficiary ID:', error);
     throw error;

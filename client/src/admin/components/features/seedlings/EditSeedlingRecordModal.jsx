@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { IoClose } from "react-icons/io5";
-import { Button, AddRecordButton } from '../../ui/BeneficiaryButtons';
+import { Button } from '../../ui/BeneficiaryButtons';
 import { beneficiariesAPI } from '../../../services/api';
 
-const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
+const EditSeedlingRecordModal = ({ isOpen, onClose, onSubmit, record = null }) => {
   const [formData, setFormData] = useState({
     beneficiaryId: '',
     beneficiaryName: '',
@@ -21,7 +21,6 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState('');
 
-  // Helper function to construct full name
   const getFullName = (beneficiary) => {
     if (beneficiary.fullName) return beneficiary.fullName;
     const firstName = beneficiary.firstName || '';
@@ -30,14 +29,11 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
     return `${firstName} ${middleName} ${lastName}`.trim().replace(/\s+/g, ' ');
   };
 
-  // Load beneficiaries for dropdown
   useEffect(() => {
     const fetchBeneficiaries = async () => {
       setBeneficiariesLoading(true);
       try {
         const data = await beneficiariesAPI.getAll();
-        
-        // Handle different response formats
         let beneficiariesArray = data;
         if (data && data.data && Array.isArray(data.data)) {
           beneficiariesArray = data.data;
@@ -45,12 +41,10 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
           setBeneficiaries([]);
           return;
         }
-        
         const mapped = beneficiariesArray.map(b => ({
           beneficiaryId: b.beneficiaryId,
           fullName: b.fullName || `${b.firstName} ${b.middleName ? b.middleName + ' ' : ''}${b.lastName}`.trim()
         }));
-        
         setBeneficiaries(mapped);
       } catch (err) {
         console.error('Error fetching beneficiaries:', err);
@@ -62,9 +56,22 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
     if (isOpen) fetchBeneficiaries();
   }, [isOpen]);
 
-  // Reset form data whenever the modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (record) {
+      const beneficiary = beneficiaries.find(b => b.beneficiaryId === record.beneficiaryId);
+      const beneficiaryName = beneficiary ? getFullName(beneficiary) : '';
+      setFormData({
+        beneficiaryId: record.beneficiaryId || '',
+        beneficiaryName: beneficiaryName,
+        received: record.received?.toString() || '',
+        dateReceived: record.dateReceived ? new Date(record.dateReceived).toISOString().split('T')[0] : '',
+        planted: record.planted?.toString() || '',
+        hectares: record.hectares?.toString() || '',
+        plot: record.plot || '',
+        dateOfPlantingStart: record.dateOfPlantingStart ? new Date(record.dateOfPlantingStart).toISOString().split('T')[0] : (record.dateOfPlanting ? new Date(record.dateOfPlanting).toISOString().split('T')[0] : ''),
+        dateOfPlantingEnd: record.dateOfPlantingEnd ? new Date(record.dateOfPlantingEnd).toISOString().split('T')[0] : ''
+      });
+    } else {
       setFormData({
         beneficiaryId: '',
         beneficiaryName: '',
@@ -76,90 +83,69 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
         dateOfPlantingStart: '',
         dateOfPlantingEnd: ''
       });
-      setErrors({});
-      setSubmitError('');
     }
-  }, [isOpen]);
+    setErrors({});
+    setSubmitError('');
+  }, [record, isOpen, beneficiaries]);
 
   const validateForm = () => {
     const newErrors = {};
-    
-    // Validate beneficiary
+
     if (!formData.beneficiaryName || !formData.beneficiaryId) {
       newErrors.beneficiaryName = 'Please select a valid beneficiary';
     }
-    
-    // Validate received seedlings
     if (!formData.received || formData.received <= 0 || isNaN(parseInt(formData.received))) {
       newErrors.received = 'Received seedlings must be a valid positive number';
     }
-    
-    // Validate date received - this is critical
     if (!formData.dateReceived || formData.dateReceived.trim() === '') {
       newErrors.dateReceived = 'Date received is required';
     } else {
-      // Validate date format
       const dateReceived = new Date(formData.dateReceived);
       if (isNaN(dateReceived.getTime())) {
         newErrors.dateReceived = 'Please enter a valid date';
       }
     }
-
-    // Validate planted seedlings
     if (!formData.planted || formData.planted <= 0 || isNaN(parseInt(formData.planted))) {
       newErrors.planted = 'Planted seedlings must be a valid positive number';
     } else if (parseInt(formData.planted) > parseInt(formData.received)) {
       newErrors.planted = 'Planted seedlings cannot exceed received seedlings';
     }
-    
-    // Validate hectares
     if (!formData.hectares || formData.hectares <= 0 || isNaN(parseFloat(formData.hectares))) {
       newErrors.hectares = 'Hectares must be a valid positive number';
     }
-    
-    // Validate plot
     if (!formData.plot || formData.plot.trim() === '') {
       newErrors.plot = 'Plot is required';
     }
-    
-    // Validate date of planting
     if (!formData.dateOfPlantingStart) {
       newErrors.dateOfPlantingStart = 'Date of planting (start) is required';
     }
-    
-    // Validate end date if provided
     if (formData.dateOfPlantingEnd && formData.dateOfPlantingStart) {
       const startDate = new Date(formData.dateOfPlantingStart);
       const endDate = new Date(formData.dateOfPlantingEnd);
       if (endDate < startDate) {
-      newErrors.dateOfPlantingEnd = 'End date cannot be before start date';
+        newErrors.dateOfPlantingEnd = 'End date cannot be before start date';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
     if (name === 'beneficiaryName') {
       const beneficiary = beneficiaries.find(b => getFullName(b) === value);
-      setFormData(prev => ({ 
-        ...prev, 
-        beneficiaryName: value, 
-        beneficiaryId: beneficiary ? beneficiary.beneficiaryId : '' 
+      setFormData(prev => ({
+        ...prev,
+        beneficiaryName: value,
+        beneficiaryId: beneficiary ? beneficiary.beneficiaryId : ''
       }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-    
-    // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
-    
-    // Clear submit error when user makes changes
     if (submitError) {
       setSubmitError('');
     }
@@ -167,24 +153,13 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Clear previous errors
     setSubmitError('');
-    
-    // Validate form
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!validateForm()) return;
     setLoading(true);
-    
     try {
-      // Ensure dateReceived is properly formatted
       if (!formData.dateReceived || formData.dateReceived.trim() === '') {
         throw new Error('Date received is required');
       }
-      
-      // Format dateReceived to YYYY-MM-DD
       let formattedDateReceived = formData.dateReceived;
       try {
         const date = new Date(formData.dateReceived);
@@ -194,28 +169,18 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
       } catch (error) {
         throw new Error('Invalid date format for Date Received');
       }
-      
-      // Parse and validate numeric fields
+
       const received = parseInt(formData.received);
       const planted = parseInt(formData.planted);
       const hectares = parseFloat(formData.hectares);
-      
-      // Validate parsed values
-      if (isNaN(received) || received <= 0) {
-        throw new Error('Received seedlings must be a valid positive number');
-      }
-      if (isNaN(planted) || planted <= 0) {
-        throw new Error('Planted seedlings must be a valid positive number');
-      }
-      if (isNaN(hectares) || hectares <= 0) {
-        throw new Error('Hectares must be a valid positive number');
-      }
-      if (planted > received) {
-        throw new Error('Planted seedlings cannot exceed received seedlings');
-      }
-      
-      // Prepare data for submission
+
+      if (isNaN(received) || received <= 0) throw new Error('Received seedlings must be a valid positive number');
+      if (isNaN(planted) || planted <= 0) throw new Error('Planted seedlings must be a valid positive number');
+      if (isNaN(hectares) || hectares <= 0) throw new Error('Hectares must be a valid positive number');
+      if (planted > received) throw new Error('Planted seedlings cannot exceed received seedlings');
+
       const submitData = {
+        id: record?.id,
         beneficiaryId: formData.beneficiaryId,
         received,
         dateReceived: formattedDateReceived,
@@ -225,46 +190,30 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
         dateOfPlantingStart: formData.dateOfPlantingStart,
         dateOfPlantingEnd: formData.dateOfPlantingEnd || null
       };
-      
-      // Pass cleaned data to parent for creation
+
       if (onSubmit) {
         await onSubmit(submitData);
       }
-      
-      // Close modal on success
+
       onClose();
-      
     } catch (error) {
-      console.error('Error submitting seedling record:', error);
-      
-      // Handle different types of errors
       let errorMessage = 'An error occurred while saving the record.';
-      
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      } else if (error.response && error.response.data && error.response.data.error) {
-        errorMessage = error.response.data.error;
-      }
-      
+      if (error.message) errorMessage = error.message;
+      else if (typeof error === 'string') errorMessage = error;
+      else if (error.response && error.response.data && error.response.data.error) errorMessage = error.response.data.error;
       setSubmitError(errorMessage);
-      
-      // Scroll to top to show error
       const modalContent = document.querySelector('.modal-content');
-      if (modalContent) {
-        modalContent.scrollTop = 0;
-      }
+      if (modalContent) modalContent.scrollTop = 0;
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => { 
+  const handleClose = () => {
     if (!loading) {
       setSubmitError('');
       setErrors({});
-      onClose(); 
+      onClose();
     }
   };
 
@@ -273,35 +222,23 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="modal-content" style={{ backgroundColor: 'white', borderRadius: '8px', padding: '1.5rem', width: '90%', maxWidth: '450px', maxHeight: '85vh', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e8f5e8', paddingBottom: '0.75rem' }}>
           <h2 style={{ color: '#2c5530', margin: 0, fontSize: '1.125rem', fontWeight: '600' }}>
-            Add New Seedling Record
+            Edit Seedling Record
           </h2>
           <button onClick={handleClose} disabled={loading} style={{ background: 'none', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '1.25rem', color: '#6c757d', padding: '0.25rem', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => !loading && (e.target.style.color = '#dc3545')} onMouseOut={(e) => !loading && (e.target.style.color = '#6c757d')}>
             <IoClose />
           </button>
         </div>
 
-        {/* Error Message */}
         {submitError && (
-          <div style={{ 
-            backgroundColor: '#f8d7da', 
-            color: '#721c24', 
-            padding: '0.75rem', 
-            borderRadius: '4px', 
-            marginBottom: '1rem', 
-            border: '1px solid #f5c6cb',
-            fontSize: '0.75rem'
-          }}>
+          <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '0.75rem', borderRadius: '4px', marginBottom: '1rem', border: '1px solid #f5c6cb', fontSize: '0.75rem' }}>
             <strong>Error:</strong> {submitError}
           </div>
         )}
 
-        {/* Form Content */}
         <div style={{ flex: 1, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {/* Beneficiary Name and ID */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
@@ -311,21 +248,10 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                   name="beneficiaryName" 
                   value={formData.beneficiaryName} 
                   onChange={handleInputChange} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.5rem', 
-                    border: errors.beneficiaryName ? '1px solid #dc3545' : '1px solid #ced4da', 
-                    borderRadius: '4px', 
-                    fontSize: '0.75rem', 
-                    backgroundColor: 'white', 
-                    color: '#495057', 
-                    height: '36px' 
-                  }} 
+                  style={{ width: '100%', padding: '0.5rem', border: errors.beneficiaryName ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                   disabled={loading || beneficiariesLoading}
                 >
-                  <option value="">
-                    {beneficiariesLoading ? 'Loading...' : 'Select Beneficiary'}
-                  </option>
+                  <option value="">{beneficiariesLoading ? 'Loading...' : 'Select Beneficiary'}</option>
                   {beneficiaries && beneficiaries.length > 0 ? (
                     beneficiaries.map(beneficiary => (
                       <option key={beneficiary.beneficiaryId} value={getFullName(beneficiary)}>
@@ -336,13 +262,10 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                     <option value="" disabled>No beneficiaries found</option>
                   ) : null}
                 </select>
-                                  {errors.beneficiaryName && (
-                    <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                      {errors.beneficiaryName}
-                    </p>
-                  )}
+                {errors.beneficiaryName && (
+                  <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.beneficiaryName}</p>
+                )}
               </div>
-
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                   Beneficiary ID
@@ -351,54 +274,31 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                   type="text" 
                   value={formData.beneficiaryId} 
                   readOnly 
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.5rem', 
-                    border: '1px solid #ced4da', 
-                    borderRadius: '4px', 
-                    fontSize: '0.75rem', 
-                    backgroundColor: '#f8f9fa', 
-                    color: '#6c757d', 
-                    cursor: 'not-allowed', 
-                    height: '36px' 
-                  }} 
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: '#f8f9fa', color: '#6c757d', cursor: 'not-allowed', height: '36px' }} 
                   placeholder="Auto-populated" 
                 />
               </div>
             </div>
 
-            {/* Received Seedlings and Date Received */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
-                Received Seedlings *
-              </label>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
+                  Received Seedlings *
+                </label>
                 <input 
                   type="number" 
                   name="received" 
                   value={formData.received} 
                   onChange={handleInputChange} 
                   min="1" 
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.5rem', 
-                    border: errors.received ? '1px solid #dc3545' : '1px solid #ced4da', 
-                    borderRadius: '4px', 
-                    fontSize: '0.75rem', 
-                    backgroundColor: 'white', 
-                    color: '#495057', 
-                    height: '36px' 
-                  }} 
+                  style={{ width: '100%', padding: '0.5rem', border: errors.received ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                   disabled={loading} 
                   placeholder="Enter number" 
                 />
                 {errors.received && (
-                  <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                    {errors.received}
-                  </p>
+                  <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.received}</p>
                 )}
               </div>
-
               <div>
                 <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                   Date Received *
@@ -408,28 +308,16 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                   name="dateReceived" 
                   value={formData.dateReceived} 
                   onChange={handleInputChange} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '0.5rem', 
-                    border: errors.dateReceived ? '1px solid #dc3545' : '1px solid #ced4da', 
-                    borderRadius: '4px', 
-                    fontSize: '0.75rem', 
-                    backgroundColor: 'white', 
-                    color: '#495057', 
-                    height: '36px' 
-                  }} 
+                  style={{ width: '100%', padding: '0.5rem', border: errors.dateReceived ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                   disabled={loading} 
                   placeholder="Select date" 
                 />
                 {errors.dateReceived && (
-                  <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                    {errors.dateReceived}
-                  </p>
+                  <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.dateReceived}</p>
                 )}
               </div>
             </div>
 
-            {/* Planted */}
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                 Planted Seedlings *
@@ -441,27 +329,15 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                 onChange={handleInputChange} 
                 min="1" 
                 max={formData.received} 
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: errors.planted ? '1px solid #dc3545' : '1px solid #ced4da', 
-                  borderRadius: '4px', 
-                  fontSize: '0.75rem', 
-                  backgroundColor: 'white', 
-                  color: '#495057', 
-                  height: '36px' 
-                }} 
+                style={{ width: '100%', padding: '0.5rem', border: errors.planted ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                 disabled={loading} 
                 placeholder="Enter number" 
               />
               {errors.planted && (
-                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                  {errors.planted}
-                </p>
+                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.planted}</p>
               )}
             </div>
 
-            {/* Hectares */}
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                 Hectares *
@@ -473,27 +349,15 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                 onChange={handleInputChange} 
                 min="0.1" 
                 step="0.1" 
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: errors.hectares ? '1px solid #dc3545' : '1px solid #ced4da', 
-                  borderRadius: '4px', 
-                  fontSize: '0.75rem', 
-                  backgroundColor: 'white', 
-                  color: '#495057', 
-                  height: '36px' 
-                }} 
+                style={{ width: '100%', padding: '0.5rem', border: errors.hectares ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                 disabled={loading} 
                 placeholder="Enter hectares" 
               />
               {errors.hectares && (
-                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                  {errors.hectares}
-                </p>
+                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.hectares}</p>
               )}
             </div>
 
-            {/* Plot */}
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                 Plot *
@@ -503,27 +367,15 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                 name="plot" 
                 value={formData.plot} 
                 onChange={handleInputChange} 
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  border: errors.plot ? '1px solid #dc3545' : '1px solid #ced4da', 
-                  borderRadius: '4px', 
-                  fontSize: '0.75rem', 
-                  backgroundColor: 'white', 
-                  color: '#495057', 
-                  height: '36px' 
-                }} 
+                style={{ width: '100%', padding: '0.5rem', border: errors.plot ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                 disabled={loading} 
                 placeholder="Enter plot number" 
               />
               {errors.plot && (
-                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                  {errors.plot}
-                </p>
+                <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.plot}</p>
               )}
             </div>
 
-            {/* Date of Planting (Range) */}
             <div>
               <label style={{ display: 'block', marginBottom: '0.375rem', color: '#2c5530', fontSize: '0.75rem', fontWeight: '500' }}>
                 Date of Planting *
@@ -535,23 +387,12 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                     name="dateOfPlantingStart" 
                     value={formData.dateOfPlantingStart} 
                     onChange={handleInputChange} 
-                    style={{ 
-                      width: '100%', 
-                      padding: '0.5rem', 
-                      border: errors.dateOfPlantingStart ? '1px solid #dc3545' : '1px solid #ced4da', 
-                      borderRadius: '4px', 
-                      fontSize: '0.75rem', 
-                      backgroundColor: 'white', 
-                      color: '#495057', 
-                      height: '36px' 
-                    }} 
+                    style={{ width: '100%', padding: '0.5rem', border: errors.dateOfPlantingStart ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                     disabled={loading} 
                     placeholder="Start date" 
                   />
                   {errors.dateOfPlantingStart && (
-                    <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                      {errors.dateOfPlantingStart}
-                    </p>
+                    <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.dateOfPlantingStart}</p>
                   )}
                 </div>
                 <div>
@@ -560,23 +401,12 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
                     name="dateOfPlantingEnd" 
                     value={formData.dateOfPlantingEnd} 
                     onChange={handleInputChange} 
-                    style={{ 
-                      width: '100%', 
-                      padding: '0.5rem', 
-                      border: errors.dateOfPlantingEnd ? '1px solid #dc3545' : '1px solid #ced4da', 
-                      borderRadius: '4px', 
-                      fontSize: '0.75rem', 
-                      backgroundColor: 'white', 
-                      color: '#495057', 
-                      height: '36px' 
-                    }} 
+                    style={{ width: '100%', padding: '0.5rem', border: errors.dateOfPlantingEnd ? '1px solid #dc3545' : '1px solid #ced4da', borderRadius: '4px', fontSize: '0.75rem', backgroundColor: 'white', color: '#495057', height: '36px' }} 
                     disabled={loading} 
                     placeholder="End date (optional)" 
                   />
                   {errors.dateOfPlantingEnd && (
-                    <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>
-                      {errors.dateOfPlantingEnd}
-                    </p>
+                    <p style={{ color: '#dc3545', fontSize: '0.625rem', marginTop: '0.125rem' }}>{errors.dateOfPlantingEnd}</p>
                   )}
                 </div>
               </div>
@@ -587,7 +417,6 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
           </form>
         </div>
 
-        {/* Action Buttons */}
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid #e8f5e8' }}>
           <Button type="secondary" size="medium" onClick={handleClose} disabled={loading}>
             Cancel
@@ -595,19 +424,14 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
           {loading ? (
             <Button type="primary" size="medium" disabled={loading}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                <span style={{ 
-                  width: '18px', 
-                  height: '18px', 
-                  border: '2px solid rgba(255,255,255,0.4)', 
-                  borderTop: '2px solid #fff', 
-                  borderRadius: '50%', 
-                  animation: 'spin 1s linear infinite' 
-                }} />
-                Saving...
+                <span style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                Updating...
               </div>
             </Button>
           ) : (
-            <AddRecordButton onClick={handleSubmit} disabled={loading} />
+            <Button type="primary" size="medium" onClick={handleSubmit} disabled={loading}>
+              Update Record
+            </Button>
           )}
         </div>
       </div>
@@ -615,4 +439,6 @@ const AddSeedlingRecordModal = ({ isOpen, onClose, onSubmit }) => {
   );
 };
 
-export default AddSeedlingRecordModal; 
+export default EditSeedlingRecordModal;
+
+
