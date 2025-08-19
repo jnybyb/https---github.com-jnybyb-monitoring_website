@@ -226,6 +226,9 @@ export const cropStatusAPI = {
     formData.append('beneficiaryId', record.beneficiaryId);
     formData.append('aliveCrops', record.aliveCrops);
     formData.append('deadCrops', record.deadCrops ?? 0);
+    if (record.plot !== undefined && record.plot !== null) {
+      formData.append('plot', record.plot);
+    }
     if (Array.isArray(record.pictures)) {
       record.pictures.forEach(file => {
         if (file instanceof File) formData.append('pictures', file);
@@ -240,6 +243,9 @@ export const cropStatusAPI = {
     formData.append('beneficiaryId', record.beneficiaryId);
     formData.append('aliveCrops', record.aliveCrops);
     formData.append('deadCrops', record.deadCrops ?? 0);
+    if (record.plot !== undefined && record.plot !== null) {
+      formData.append('plot', record.plot);
+    }
     
     // Handle existing pictures for edit mode
     if (record.existingPictures && Array.isArray(record.existingPictures)) {

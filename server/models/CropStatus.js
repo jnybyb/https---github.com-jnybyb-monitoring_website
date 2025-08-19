@@ -78,8 +78,34 @@ class CropStatus {
   }
 
   static async update(id, cropStatusData, pictureFiles = []) {
-    const files = pictureFiles.map(f => path.basename(f.path));
-    
+    const uploadedFiles = pictureFiles.map(f => path.basename(f.path));
+
+    // Determine existing pictures to keep
+    let existingPictures = [];
+    if (cropStatusData.existingPictures) {
+      try {
+        const parsed = typeof cropStatusData.existingPictures === 'string'
+          ? JSON.parse(cropStatusData.existingPictures)
+          : cropStatusData.existingPictures;
+        if (Array.isArray(parsed)) existingPictures = parsed.map(p => path.basename(p));
+      } catch (_e) {
+        existingPictures = [];
+      }
+    } else {
+      // Fallback: fetch current pictures from DB if not explicitly provided
+      const [rows] = await getPromisePool().query('SELECT pictures FROM crop_status WHERE id = ?', [id]);
+      if (rows && rows.length) {
+        try {
+          const parsed = Array.isArray(rows[0].pictures) ? rows[0].pictures : (rows[0].pictures ? JSON.parse(rows[0].pictures) : []);
+          if (Array.isArray(parsed)) existingPictures = parsed.map(p => path.basename(p));
+        } catch (_e) {
+          existingPictures = [];
+        }
+      }
+    }
+
+    const finalPictures = [...existingPictures, ...uploadedFiles];
+
     const sql = `UPDATE crop_status SET 
       survey_date = ?, surveyer = ?, beneficiary_id = ?, alive_crops = ?, dead_crops = ?, plot = ?, pictures = ?
       WHERE id = ?`;
@@ -90,10 +116,10 @@ class CropStatus {
       parseInt(cropStatusData.aliveCrops),
       parseInt(cropStatusData.deadCrops || 0),
       cropStatusData.plot || null,
-      JSON.stringify(files),
+      JSON.stringify(finalPictures),
       id
     ];
-    
+
     const [result] = await getPromisePool().query(sql, params);
     return result.affectedRows > 0;
   }
