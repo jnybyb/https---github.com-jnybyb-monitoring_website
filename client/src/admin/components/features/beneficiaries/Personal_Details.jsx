@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { beneficiariesAPI } from '../../../services/api';
+import { beneficiariesAPI, handleAPIError } from '../../../services/api';
 import { 
   FaUserFriends, 
   FaSeedling, 
@@ -9,6 +9,7 @@ import {
 import { HiOutlineTrash } from "react-icons/hi2";
 import { AiOutlineEdit } from "react-icons/ai";
 import Button from '../../ui/BeneficiaryButtons';
+import AlertModal from '../../ui/AlertModal';
 import Pagination from '../../ui/Pagination';
 import AddBeneficiaryModal from './AddBeneficiaryModal';
 import EditBeneficiaryModal from './EditBeneficiaryModal';
@@ -136,6 +137,7 @@ const PersonalDetailsTable = () => {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState(null);
+  const [alertModal, setAlertModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
   const totalRecords = beneficiaries.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
@@ -176,21 +178,14 @@ const PersonalDetailsTable = () => {
   // Handler for form submission
   const handleSubmitBeneficiary = async (beneficiaryData) => {
     try {
-      // Add the new beneficiary to local state
-      const newBeneficiary = {
-        id: Date.now(), // Simple ID for local state
-        ...beneficiaryData
-      };
-      
+      const newBeneficiary = { ...beneficiaryData, id: beneficiaryData.id || Date.now() };
       setBeneficiaries(prev => [...prev, newBeneficiary]);
-      
-      // Close the modal
       handleCloseModal();
-      
-      console.log('Beneficiary added successfully:', newBeneficiary);
+      setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been added successfully.' });
     } catch (error) {
-      console.error('Error adding beneficiary:', error);
-      setError('Failed to add beneficiary. Please try again.');
+      const e = handleAPIError(error);
+      setError(e.message || 'Failed to add beneficiary.');
+      setAlertModal({ isOpen: true, type: 'error', title: 'Failed', message: e.message || 'Failed to add beneficiary.' });
     }
   };
 
@@ -217,9 +212,11 @@ const PersonalDetailsTable = () => {
       const records = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setBeneficiaries(records);
       handleCloseEdit();
+      setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been updated successfully.' });
     } catch (err) {
-      console.error('Error updating beneficiary:', err);
-      setError(err?.message || 'Failed to update beneficiary.');
+      const e = handleAPIError(err);
+      setError(e.message || 'Failed to update beneficiary.');
+      setAlertModal({ isOpen: true, type: 'error', title: 'Failed', message: e.message || 'Failed to update beneficiary.' });
     } finally {
       setLoading(false);
     }
@@ -245,12 +242,18 @@ const PersonalDetailsTable = () => {
       await beneficiariesAPI.delete(selectedBeneficiary.id);
       setBeneficiaries((prev) => prev.filter((b) => b.id !== selectedBeneficiary.id));
       handleCloseDelete();
+      setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been deleted successfully.' });
     } catch (err) {
-      console.error('Error deleting beneficiary:', err);
-      setError(err?.message || 'Failed to delete beneficiary.');
+      const e = handleAPIError(err);
+      setError(e.message || 'Failed to delete beneficiary.');
+      setAlertModal({ isOpen: true, type: 'error', title: 'Failed', message: e.message || 'Failed to delete beneficiary.' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAlertClose = () => {
+    setAlertModal({ ...alertModal, isOpen: false });
   };
 
   // Format address for display
@@ -519,6 +522,17 @@ const PersonalDetailsTable = () => {
         onClose={handleCloseDelete}
         onConfirm={handleConfirmDelete}
         beneficiary={selectedBeneficiary}
+      />
+
+      {/* Alerts */}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={handleAlertClose}
+        type={alertModal.type}
+        title={alertModal.title}
+        message={alertModal.message}
+        autoClose={true}
+        autoCloseDelay={3000}
       />
     </div>
   );
