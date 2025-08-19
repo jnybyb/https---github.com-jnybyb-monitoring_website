@@ -33,6 +33,13 @@ class BeneficiaryController {
 
   // Create new beneficiary
   static async createBeneficiary(req, res) {
+    console.log('Creating beneficiary with data:', {
+      beneficiaryId: req.body.beneficiaryId,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      beneficiaryIdLength: req.body.beneficiaryId?.length || 0
+    });
+    
     const filePath = req.file ? path.join(uploadsDir, req.file.filename) : null;
     const result = await Beneficiary.create(req.body, filePath);
     BaseController.sendSuccess(res, { id: result.id, beneficiaryId: result.beneficiaryId });

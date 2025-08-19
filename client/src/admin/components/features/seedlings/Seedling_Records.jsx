@@ -11,6 +11,7 @@ import { PiFileXLight } from "react-icons/pi";
 import Button from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import AddSeedlingRecordModal from './AddSeedlingRecordModal';
+import EditSeedlingRecordModal from './EditSeedlingRecordModal';
 import DeleteSeedlingModal from './DeleteSeedlingModal';
 import { seedlingsAPI, beneficiariesAPI, handleAPIError } from '../../../services/api';
 
@@ -171,7 +172,25 @@ const SeedlingRecordsTable = () => {
         seedlingsAPI.getAll(),
         beneficiariesAPI.getAll()
       ]);
-      setSeedlingRecordsData(records || []);
+      
+      // Validate and clean the records data
+      const validRecords = Array.isArray(records) ? records.filter(record => {
+        // Ensure numeric fields are valid numbers
+        return record && 
+               record.id && 
+               record.beneficiaryId &&
+               !isNaN(parseInt(record.received)) &&
+               !isNaN(parseInt(record.planted)) &&
+               !isNaN(parseFloat(record.hectares));
+      }).map(record => ({
+        ...record,
+        received: parseInt(record.received) || 0,
+        planted: parseInt(record.planted) || 0,
+        hectares: parseFloat(record.hectares) || 0
+      })) : [];
+      
+      setSeedlingRecordsData(validRecords);
+      
       // Map beneficiaries for name lookup and profile pictures
       const mapped = Array.isArray(bens) ? bens.map(b => ({
         beneficiaryId: b.beneficiaryId,
@@ -346,11 +365,11 @@ const SeedlingRecordsTable = () => {
           <span>{beneficiaryName}</span>
         </div>
       ),
-      received: Number(record.received).toLocaleString(),
+      received: (record.received && !isNaN(record.received)) ? Number(record.received).toLocaleString() : 'N/A',
       dateReceived: receivedDateString,
-      planted: Number(record.planted).toLocaleString(),
+      planted: (record.planted && !isNaN(record.planted)) ? Number(record.planted).toLocaleString() : 'N/A',
       dateOfPlanting: dateString,
-      hectares: record.hectares ? `${record.hectares} ha` : 'N/A',
+      hectares: (record.hectares && !isNaN(record.hectares)) ? `${record.hectares} ha` : 'N/A',
       plot: record.plot || 'N/A',
       actions: (
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -443,11 +462,83 @@ const SeedlingRecordsTable = () => {
             Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, seedlingRecordsData.length)} of {seedlingRecordsData.length} entries
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} type="pagination" size="pagination">&lt;</Button>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              style={{
+                padding: '4px 8px',
+                fontSize: '0.7rem',
+                borderRadius: '4px',
+                minWidth: '28px',
+                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                backgroundColor: 'var(--white)',
+                color: 'var(--primary-green)',
+                border: '1px solid #e8f5e8',
+                opacity: currentPage === 1 ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (currentPage !== 1) e.target.style.backgroundColor = '#e8f5e8';
+              }}
+              onMouseOut={(e) => {
+                if (currentPage !== 1) e.target.style.backgroundColor = 'var(--white)';
+              }}
+            >
+              &lt;
+            </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <Button key={page} onClick={() => handlePageChange(page)} type={currentPage === page ? 'paginationActive' : 'pagination'} size="pagination" style={{ minWidth: '28px' }}>{page}</Button>
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '0.7rem',
+                  borderRadius: '4px',
+                  minWidth: '28px',
+                  cursor: 'pointer',
+                  backgroundColor: currentPage === page ? 'var(--primary-green)' : 'var(--white)',
+                  color: currentPage === page ? 'var(--white)' : 'var(--primary-green)',
+                  border: `1px solid ${currentPage === page ? 'var(--primary-green)' : '#e8f5e8'}`,
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  if (currentPage !== page) {
+                    e.target.style.backgroundColor = '#e8f5e8';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (currentPage !== page) {
+                    e.target.style.backgroundColor = 'var(--white)';
+                  }
+                }}
+              >
+                {page}
+              </button>
             ))}
-            <Button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} type="pagination" size="pagination">&gt;</Button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: '4px 8px',
+                fontSize: '0.7rem',
+                borderRadius: '4px',
+                minWidth: '28px',
+                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                backgroundColor: 'var(--white)',
+                color: 'var(--primary-green)',
+                border: '1px solid #e8f5e8',
+                opacity: currentPage === totalPages ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                if (currentPage !== totalPages) e.target.style.backgroundColor = '#e8f5e8';
+              }}
+              onMouseOut={(e) => {
+                if (currentPage !== totalPages) e.target.style.backgroundColor = 'var(--white)';
+              }}
+            >
+              &gt;
+            </button>
           </div>
         </div>
       )}
@@ -457,7 +548,7 @@ const SeedlingRecordsTable = () => {
       )}
 
       {isEditModalOpen && selectedRecord && (
-        <AddSeedlingRecordModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedRecord(null); }} onSubmit={handleEditSeedlingRecord} record={selectedRecord} isEdit={true} />
+        <EditSeedlingRecordModal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedRecord(null); }} onSubmit={handleEditSeedlingRecord} record={selectedRecord} />
       )}
 
       <AlertModal isOpen={alertModal.isOpen} onClose={handleAlertClose} type={alertModal.type} title={alertModal.title} message={alertModal.message} autoClose={true} autoCloseDelay={3000} />

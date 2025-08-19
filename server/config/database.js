@@ -127,9 +127,12 @@ const createTables = async () => {
         const msg = String(error.message || '').toLowerCase();
         if (
           error.code === 'ER_DUP_KEYNAME' ||
+          error.code === 'ER_CANT_DROP_FIELD_OR_KEY' ||
           msg.includes('duplicate key name') ||
           msg.includes('duplicate foreign key constraint name') ||
-          msg.includes("can't create table") && msg.includes('errno: 121')
+          msg.includes("can't create table") && msg.includes('errno: 121') ||
+          msg.includes('check that column/key exists') ||
+          msg.includes('doesn\'t exist')
         ) {
           continue;
         }

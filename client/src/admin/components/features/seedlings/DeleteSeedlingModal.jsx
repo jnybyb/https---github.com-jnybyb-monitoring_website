@@ -19,12 +19,13 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
     },
     modal: {
       backgroundColor: 'white',
-      borderRadius: '8px',
+      borderRadius: '12px',
       padding: '0',
       maxWidth: '350px',
       width: '90%',
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     },
     header: {
       display: 'flex',
@@ -40,7 +41,7 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
     title: {
       color: 'var(--black)',
       margin: 0,
-      fontSize: '1rem',
+      fontSize: '0.9rem',
       fontWeight: '600'
     },
     content: {
@@ -56,7 +57,7 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
     },
     message: {
       color: 'var(--black)',
-      fontSize: '14px',
+      fontSize: '12px',
       marginBottom: '1.5rem',
       lineHeight: '1.5'
     },
@@ -64,8 +65,10 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
       backgroundColor: '#f8f9fa',
       padding: '1rem',
       borderRadius: '6px',
-      marginBottom: '1.5rem',
-      border: '1px solid #e9ecef'
+      margin: '0 auto 1.5rem',
+      border: '1px solid #e9ecef',
+      display: 'inline-block',
+      textAlign: 'left'
     },
     beneficiaryName: {
       fontWeight: '600',
@@ -75,12 +78,12 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
     },
     recordDetails: {
       color: 'var(--black)',
-      fontSize: '14px',
+      fontSize: '12px',
       fontWeight: '500'
     },
     warning: {
       color: 'var(--red)',
-      fontSize: '12px',
+      fontSize: '11px',
       fontStyle: 'italic',
       marginBottom: '1.5rem'
     },
@@ -93,7 +96,7 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
       padding: '12px 24px',
       borderRadius: '6px',
       cursor: 'pointer',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '500',
       transition: 'all 0.2s ease',
       border: 'none'
@@ -120,58 +123,19 @@ const DeleteSeedlingModal = ({ isOpen, onClose, onConfirm, record, beneficiaryNa
   return (
     <div style={styles.overlay}>
       <div style={styles.modal}>
-        {/* Modal Header */}
         <div style={styles.header}>
           <h2 style={styles.title}>Delete Seedling Record</h2>
         </div>
-
-        {/* Modal Content */}
         <div style={styles.content}>
-          {/* Warning Icon */}
           <div style={styles.icon}>
-            <HiOutlineTrash size={48} color="#dc3545" />
+            <HiOutlineTrash size={38} color="#dc3545" />
           </div>
-
-          {/* Confirmation Message */}
           <p style={styles.message}>
             Are you sure you want to delete this seedling record?
           </p>
-
-          {/* Record Information */}
-          <div style={styles.recordInfo}>
-            <div style={styles.beneficiaryName}>
-              {beneficiaryName || record.beneficiaryId}
-            </div>
-            <div style={styles.recordDetails}>
-              <div>Beneficiary ID: {record.beneficiaryId}</div>
-              <div>Received: {record.received}</div>
-              <div>Planted: {record.planted}</div>
-              <div>Hectares: {record.hectares} ha</div>
-              <div>Plot: {record.plot || 'N/A'}</div>
-              <div>Date: {(() => {
-                try {
-                  const date = new Date(record.dateOfPlanting || record.dateOfPlantingStart);
-                  if (isNaN(date.getTime())) {
-                    return 'N/A';
-                  }
-                  return date.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  });
-                } catch (error) {
-                  return 'N/A';
-                }
-              })()}</div>
-            </div>
-          </div>
-
-          {/* Warning Message */}
           <p style={styles.warning}>
             This action cannot be undone. All seedling record data will be permanently deleted.
           </p>
-
-          {/* Action Buttons */}
           <div style={styles.buttons}>
             <button
               type="button"

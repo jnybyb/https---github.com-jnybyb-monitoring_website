@@ -52,6 +52,13 @@ class Beneficiary {
   }
 
   static async create(beneficiaryData, picturePath = null) {
+    // Validate beneficiary_id length before inserting
+    if (beneficiaryData.beneficiaryId && beneficiaryData.beneficiaryId.length > 20) {
+      throw new Error(`Beneficiary ID "${beneficiaryData.beneficiaryId}" is too long (${beneficiaryData.beneficiaryId.length} characters). Maximum allowed is 20.`);
+    }
+    
+    console.log(`Creating beneficiary with ID: "${beneficiaryData.beneficiaryId}" (length: ${beneficiaryData.beneficiaryId?.length || 0})`);
+    
     const sql = `INSERT INTO beneficiary_details 
       (beneficiary_id, first_name, middle_name, last_name, purok, barangay, municipality, province, gender, birth_date, age, marital_status, cellphone, picture)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;

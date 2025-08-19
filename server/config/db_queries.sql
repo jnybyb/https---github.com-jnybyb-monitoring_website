@@ -2,9 +2,12 @@ CREATE DATABASE IF NOT EXISTS coffee_monitoring;
 
 USE coffee_monitoring;
 
+-- Drop existing foreign key constraints if they exist (these will be ignored if they don't exist)
+SET FOREIGN_KEY_CHECKS = 0;
+
 CREATE TABLE IF NOT EXISTS beneficiary_details (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  beneficiary_id VARCHAR(10) NOT NULL UNIQUE,
+  beneficiary_id VARCHAR(20) NOT NULL UNIQUE,
   first_name VARCHAR(100) NOT NULL,
   middle_name VARCHAR(100) NULL,
   last_name VARCHAR(100) NOT NULL,
@@ -24,7 +27,7 @@ CREATE TABLE IF NOT EXISTS beneficiary_details (
 
 CREATE TABLE IF NOT EXISTS seedling_records (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  beneficiary_id VARCHAR(10) NOT NULL,
+  beneficiary_id VARCHAR(20) NOT NULL,
   received INT NOT NULL,
   date_received DATE NOT NULL,
   planted INT NOT NULL,
@@ -35,13 +38,12 @@ CREATE TABLE IF NOT EXISTS seedling_records (
   gps VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_seedlings_beneficiary_id (beneficiary_id),
-  INDEX idx_seedlings_plot (plot)
+  INDEX idx_seedlings_beneficiary_id (beneficiary_id)
 );
 
 CREATE TABLE IF NOT EXISTS crop_status (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  beneficiary_id VARCHAR(10) NOT NULL,
+  beneficiary_id VARCHAR(20) NOT NULL,
   survey_date DATE NOT NULL,
   surveyer VARCHAR(100) NOT NULL,
   alive_crops INT NOT NULL,
@@ -57,7 +59,7 @@ CREATE TABLE IF NOT EXISTS crop_status (
 -- Farm plots for map monitoring
 CREATE TABLE IF NOT EXISTS farm_plots (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  beneficiary_id VARCHAR(10) NOT NULL,
+  beneficiary_id VARCHAR(20) NOT NULL,
   plot_name VARCHAR(255) NOT NULL,
   color VARCHAR(20) NULL,
   coordinates JSON NOT NULL,
@@ -66,6 +68,12 @@ CREATE TABLE IF NOT EXISTS farm_plots (
   INDEX idx_farm_plots_beneficiary_id (beneficiary_id),
   INDEX idx_farm_plots_plot_name (plot_name)
 );
+
+-- Drop existing plot foreign key constraints if they exist
+-- These statements will be ignored if constraints don't exist (handled by database.js error handling)
+-- This allows the database to be recreated cleanly without plot foreign key constraints
+ALTER TABLE seedling_records DROP FOREIGN KEY fk_seedlings_plot;
+ALTER TABLE crop_status DROP FOREIGN KEY fk_crop_status_plot;
 
 ALTER TABLE seedling_records
   ADD CONSTRAINT fk_seedlings_beneficiary
@@ -88,19 +96,9 @@ ALTER TABLE farm_plots
   ON UPDATE CASCADE
   ON DELETE CASCADE;
 
--- Add foreign key constraints for plot references
-ALTER TABLE seedling_records
-  ADD CONSTRAINT fk_seedlings_plot
-  FOREIGN KEY (plot)
-  REFERENCES farm_plots(plot_name)
-  ON UPDATE CASCADE
-  ON DELETE SET NULL;
+-- Re-enable foreign key checks
+SET FOREIGN_KEY_CHECKS = 1;
 
-ALTER TABLE crop_status
-  ADD CONSTRAINT fk_crop_status_plot
-  FOREIGN KEY (plot)
-  REFERENCES farm_plots(plot_name)
-  ON UPDATE CASCADE
-  ON DELETE SET NULL;
+
 
 
