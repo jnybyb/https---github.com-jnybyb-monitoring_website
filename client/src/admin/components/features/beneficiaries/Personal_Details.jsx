@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fa';
 import { HiOutlineTrash } from "react-icons/hi2";
 import { AiOutlineEdit } from "react-icons/ai";
+import { LuArrowDownUp, LuArrowUpAZ, LuArrowDownZA, LuArrowDown, LuArrowUp, LuArrowUp01, LuArrowDown10 } from "react-icons/lu";
 import Button from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import Pagination from '../../ui/Pagination';
@@ -130,6 +131,7 @@ const PersonalDetailsTable = () => {
   // State management
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [beneficiaries, setBeneficiaries] = useState([]);
+  const [filteredBeneficiaries, setFilteredBeneficiaries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -138,9 +140,40 @@ const PersonalDetailsTable = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState(null);
   const [alertModal, setAlertModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+  
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'default' // 'default', 'asc', 'desc'
+  });
 
-  const totalRecords = beneficiaries.length;
+  // Format address for display
+  const formatAddress = (beneficiary) => {
+    const parts = [
+      beneficiary.purok,
+      beneficiary.barangay,
+      beneficiary.municipality,
+      beneficiary.province
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  // Format name for display
+  const formatName = (beneficiary) => {
+    const parts = [
+      beneficiary.firstName,
+      beneficiary.middleName,
+      beneficiary.lastName
+    ].filter(Boolean);
+    return parts.join(' ');
+  };
+
+  const totalRecords = filteredBeneficiaries.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+
+  // Get unique addresses and statuses for filter options
+  const uniqueAddresses = [...new Set(beneficiaries.map(b => formatAddress(b)).filter(Boolean))];
+  const uniqueStatuses = [...new Set(beneficiaries.map(b => b.maritalStatus).filter(Boolean))];
 
   useEffect(() => {
     // Ensure current page stays in range when data/pageSize changes
@@ -156,6 +189,7 @@ const PersonalDetailsTable = () => {
         const res = await beneficiariesAPI.getAll();
         const records = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         setBeneficiaries(records);
+        setFilteredBeneficiaries(records);
       } catch (err) {
         setError(err?.message || 'Failed to load beneficiaries.');
       } finally {
@@ -183,6 +217,7 @@ const PersonalDetailsTable = () => {
       const res = await beneficiariesAPI.getAll();
       const records = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setBeneficiaries(records);
+      setFilteredBeneficiaries(records); // Update filtered list
       handleCloseModal();
       setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been added successfully.' });
     } catch (error) {
@@ -214,6 +249,7 @@ const PersonalDetailsTable = () => {
       const res = await beneficiariesAPI.getAll();
       const records = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setBeneficiaries(records);
+      setFilteredBeneficiaries(records); // Update filtered list
       handleCloseEdit();
       setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been updated successfully.' });
     } catch (err) {
@@ -244,6 +280,7 @@ const PersonalDetailsTable = () => {
       setLoading(true);
       await beneficiariesAPI.delete(selectedBeneficiary.id);
       setBeneficiaries((prev) => prev.filter((b) => b.id !== selectedBeneficiary.id));
+      setFilteredBeneficiaries((prev) => prev.filter((b) => b.id !== selectedBeneficiary.id)); // Update filtered list
       handleCloseDelete();
       setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been deleted successfully.' });
     } catch (err) {
@@ -259,25 +296,115 @@ const PersonalDetailsTable = () => {
     setAlertModal({ ...alertModal, isOpen: false });
   };
 
-  // Format address for display
-  const formatAddress = (beneficiary) => {
-    const parts = [
-      beneficiary.purok,
-      beneficiary.barangay,
-      beneficiary.municipality,
-      beneficiary.province
-    ].filter(Boolean);
-    return parts.join(', ');
+  // Sorting function
+  const handleSort = (key) => {
+    let direction = 'default';
+    
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'default') {
+        direction = 'asc';
+      } else if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else {
+        direction = 'default';
+      }
+    } else {
+      direction = 'asc';
+    }
+
+    setSortConfig({ key, direction });
+
+    if (direction === 'default') {
+      setFilteredBeneficiaries([...beneficiaries]);
+    } else {
+      const sorted = [...beneficiaries].sort((a, b) => {
+        let aValue, bValue;
+
+        if (key === 'beneficiaryId') {
+          aValue = a.beneficiaryId || '';
+          bValue = b.beneficiaryId || '';
+        } else if (key === 'name') {
+          aValue = formatName(a).toLowerCase();
+          bValue = formatName(b).toLowerCase();
+        } else if (key === 'birthDate') {
+          aValue = a.birthDate ? new Date(a.birthDate).getTime() : 0;
+          bValue = b.birthDate ? new Date(b.birthDate).getTime() : 0;
+          if (direction === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        } else if (key === 'gender') {
+          aValue = a.gender || '';
+          bValue = b.gender || '';
+        } else if (key === 'age') {
+          aValue = parseInt(a.age) || 0;
+          bValue = parseInt(b.age) || 0;
+          if (direction === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        } else {
+          aValue = a[key] || '';
+          bValue = b[key] || '';
+        }
+
+        if (direction === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      });
+      setFilteredBeneficiaries(sorted);
+    }
   };
 
-  // Format name for display
-  const formatName = (beneficiary) => {
-    const parts = [
-      beneficiary.firstName,
-      beneficiary.middleName,
-      beneficiary.lastName
-    ].filter(Boolean);
-    return parts.join(' ');
+  // Get sort icon for a column
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      if (columnKey === 'gender') {
+        return <LuArrowDownUp size={12} />;
+      } else if (columnKey === 'age') {
+        return <LuArrowDownUp size={12} />;
+      } else {
+        return <LuArrowDownUp size={12} />;
+      }
+    }
+    
+    switch (sortConfig.direction) {
+      case 'asc':
+        if (columnKey === 'gender') {
+          return <LuArrowUp size={12} />;
+        } else if (columnKey === 'age') {
+          return <LuArrowUp01 size={12} />;
+        } else {
+          return <LuArrowUpAZ size={12} />;
+        }
+      case 'desc':
+        if (columnKey === 'gender') {
+          return <LuArrowDown size={12} />;
+        } else if (columnKey === 'age') {
+          return <LuArrowDown10 size={12} />;
+        } else {
+          return <LuArrowDownZA size={12} />;
+        }
+      default:
+        if (columnKey === 'gender') {
+          return <LuArrowDownUp size={12} />;
+        } else if (columnKey === 'age') {
+          return <LuArrowDownUp size={12} />;
+        } else {
+          return <LuArrowDownUp size={12} />;
+        }
+    }
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    // No filters to apply, just use all beneficiaries
+    setFilteredBeneficiaries([...beneficiaries]);
+    setCurrentPage(1); // Reset to first page
   };
 
   // Render table content
@@ -310,7 +437,7 @@ const PersonalDetailsTable = () => {
       );
     }
 
-    if (beneficiaries.length === 0) {
+    if (filteredBeneficiaries.length === 0) {
       return (
         <div style={styles.emptyState}>
           <NoDataIcon type="beneficiaries" size="48px" color="#6c757d" />
@@ -322,7 +449,7 @@ const PersonalDetailsTable = () => {
 
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    const pageItems = beneficiaries.slice(start, end);
+    const pageItems = filteredBeneficiaries.slice(start, end);
 
     return (
       <>
@@ -334,10 +461,27 @@ const PersonalDetailsTable = () => {
                   key={index}
                   style={{
                     ...styles.tableHeader,
-                    paddingLeft: index === 1 ? '20px' : '12px'
+                    paddingLeft: index === 1 ? '20px' : '12px',
+                    cursor: (column === 'Beneficiary ID' || column === 'Name' || column === 'Birth Date' || column === 'Gender' || column === 'Age') ? 'pointer' : 'default',
+                    userSelect: 'none',
+                    position: 'relative'
+                  }}
+                  onClick={() => {
+                    if (column === 'Beneficiary ID') handleSort('beneficiaryId');
+                    else if (column === 'Name') handleSort('name');
+                    else if (column === 'Birth Date') handleSort('birthDate');
+                    else if (column === 'Gender') handleSort('gender');
+                    else if (column === 'Age') handleSort('age');
                   }}
                 >
-                  {column}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {(column === 'Beneficiary ID' || column === 'Name' || column === 'Birth Date' || column === 'Gender' || column === 'Age') && (
+                      <span style={{ color: sortConfig.key === (column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : column === 'Birth Date' ? 'birthDate' : column === 'Gender' ? 'gender' : 'age') ? '#2c5530' : '#6c757d' }}>
+                        {getSortIcon(column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : column === 'Birth Date' ? 'birthDate' : column === 'Gender' ? 'gender' : 'age')}
+                      </span>
+                    )}
+                    {column}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -477,14 +621,14 @@ const PersonalDetailsTable = () => {
             Beneficiary personal information and contact details
           </p>
         </div>
-        <Button
-          onClick={handleOpenModal}
-          type="primary"
-          size="medium"
-          icon="+"
-        >
-          Add Beneficiary
-        </Button>
+          <Button
+            onClick={handleOpenModal}
+            type="primary"
+            size="medium"
+            icon="+"
+          >
+            Add Beneficiary
+          </Button>
       </div>
       
       {/* Table container */}
@@ -493,7 +637,7 @@ const PersonalDetailsTable = () => {
         </div>
 
       {/* Sticky pagination anchored to MainContent container (outside the inner scroller) */}
-      {beneficiaries.length > 0 && (
+      {filteredBeneficiaries.length > 0 && (
         <Pagination
           currentPage={currentPage}
           totalRecords={totalRecords}

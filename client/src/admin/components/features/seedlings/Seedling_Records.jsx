@@ -8,6 +8,7 @@ import {
   FaClipboardList 
 } from 'react-icons/fa';
 import { PiFileXLight } from "react-icons/pi";
+import { LuArrowDownUp, LuArrowUpAZ, LuArrowDownZA } from "react-icons/lu";
 import Button from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import AddSeedlingRecordModal from './AddSeedlingRecordModal';
@@ -149,6 +150,7 @@ const SeedlingRecordsTable = () => {
     message: ''
   });
   const [seedlingRecordsData, setSeedlingRecordsData] = useState([]);
+  const [filteredSeedlingRecordsData, setFilteredSeedlingRecordsData] = useState([]);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -161,6 +163,12 @@ const SeedlingRecordsTable = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'default' // 'default', 'asc', 'desc'
+  });
 
   const styles = getCommonStyles();
 
@@ -190,6 +198,7 @@ const SeedlingRecordsTable = () => {
       })) : [];
       
       setSeedlingRecordsData(validRecords);
+      setFilteredSeedlingRecordsData(validRecords);
       
       // Map beneficiaries for name lookup and profile pictures
       const mapped = Array.isArray(bens) ? bens.map(b => ({
@@ -213,10 +222,93 @@ const SeedlingRecordsTable = () => {
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = seedlingRecordsData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(seedlingRecordsData.length / itemsPerPage);
+  const currentItems = filteredSeedlingRecordsData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredSeedlingRecordsData.length / itemsPerPage);
 
   const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Sorting function
+  const handleSort = (key) => {
+    let direction = 'default';
+    
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'default') {
+        direction = 'asc';
+      } else if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else {
+        direction = 'default';
+      }
+    } else {
+      direction = 'asc';
+    }
+
+    setSortConfig({ key, direction });
+
+    if (direction === 'default') {
+      setFilteredSeedlingRecordsData([...seedlingRecordsData]);
+    } else {
+      const sorted = [...seedlingRecordsData].sort((a, b) => {
+        let aValue, bValue;
+
+        if (key === 'beneficiaryId') {
+          aValue = a.beneficiaryId || '';
+          bValue = b.beneficiaryId || '';
+        } else if (key === 'name') {
+          const beneficiaryA = beneficiaries.find(b => b.beneficiaryId === a.beneficiaryId);
+          const beneficiaryB = beneficiaries.find(b => b.beneficiaryId === b.beneficiaryId);
+          aValue = beneficiaryA ? beneficiaryA.fullName : a.beneficiaryId;
+          bValue = beneficiaryB ? beneficiaryB.fullName : b.beneficiaryId;
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        } else if (key === 'dateReceived') {
+          aValue = a.dateReceived ? new Date(a.dateReceived).getTime() : 0;
+          bValue = b.dateReceived ? new Date(b.dateReceived).getTime() : 0;
+          if (direction === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        } else if (key === 'dateOfPlanting') {
+          const startA = a.dateOfPlantingStart || a.dateOfPlanting;
+          const startB = b.dateOfPlantingStart || b.dateOfPlanting;
+          aValue = startA ? new Date(startA).getTime() : 0;
+          bValue = startB ? new Date(startB).getTime() : 0;
+          if (direction === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        } else {
+          aValue = a[key] || '';
+          bValue = b[key] || '';
+        }
+
+        if (direction === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      });
+      setFilteredSeedlingRecordsData(sorted);
+    }
+  };
+
+  // Get sort icon for a column
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <LuArrowDownUp size={12} />;
+    }
+    
+    switch (sortConfig.direction) {
+      case 'asc':
+        return <LuArrowUpAZ size={12} />;
+      case 'desc':
+        return <LuArrowDownZA size={12} />;
+      default:
+        return <LuArrowDownUp size={12} />;
+    }
+  };
 
   const handleAddSeedlingRecord = async (newRecord) => {
     try {
@@ -404,7 +496,7 @@ const SeedlingRecordsTable = () => {
           <h2 style={{ color: '#2c5530', marginBottom: '0.2rem', fontSize: '1.4rem' }}>Seedling Records</h2>
           <p style={{ color: '#6c757d', margin: '0', fontSize: '0.60rem' }}>Coffee seedling distribution and planting records</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} type="primary" size="medium" icon="+">Add Record</Button>
+          <Button onClick={() => setIsModalOpen(true)} type="primary" size="medium" icon="+">Add Record</Button>
       </div>
 
       {error && (
@@ -420,7 +512,7 @@ const SeedlingRecordsTable = () => {
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>Loading...</h3>
             <p style={{ color: '#6c757d', margin: '0', fontSize: '0.875rem' }}>Please wait while we fetch the seedling records.</p>
           </div>
-        ) : seedlingRecordsData.length === 0 ? (
+        ) : filteredSeedlingRecordsData.length === 0 ? (
           <div style={styles.emptyState}>
             <NoDataIcon type="seedlings" size="48px" color="#6c757d" />
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>No Data Available</h3>
@@ -433,8 +525,26 @@ const SeedlingRecordsTable = () => {
                 {columns.map((column, index) => (
                   <th key={index} style={{ 
                     ...styles.tableHeader, 
-                    ...(columnHeaderStyles[index] || {})
-                  }}>{column}</th>
+                    ...(columnHeaderStyles[index] || {}),
+                    cursor: (column === 'Beneficiary ID' || column === 'Name' || column === 'Date Received' || column === 'Date Planted') ? 'pointer' : 'default',
+                    userSelect: 'none'
+                  }}
+                  onClick={() => {
+                    if (column === 'Beneficiary ID') handleSort('beneficiaryId');
+                    else if (column === 'Name') handleSort('name');
+                    else if (column === 'Date Received') handleSort('dateReceived');
+                    else if (column === 'Date Planted') handleSort('dateOfPlanting');
+                  }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {(column === 'Beneficiary ID' || column === 'Name' || column === 'Date Received' || column === 'Date Planted') && (
+                        <span style={{ color: sortConfig.key === (column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : column === 'Date Received' ? 'dateReceived' : 'dateOfPlanting') ? '#2c5530' : '#6c757d' }}>
+                          {getSortIcon(column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : column === 'Date Received' ? 'dateReceived' : 'dateOfPlanting')}
+                        </span>
+                      )}
+                      {column}
+                    </div>
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -456,10 +566,10 @@ const SeedlingRecordsTable = () => {
         )}
       </div>
 
-      {!loading && seedlingRecordsData.length > 0 && (
+      {!loading && filteredSeedlingRecordsData.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0.5rem', backgroundColor: 'white', borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', position: 'sticky', bottom: '0', flexShrink: 0 }}>
           <div style={{ fontSize: '0.65rem', color: '#6c757d' }}>
-            Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, seedlingRecordsData.length)} of {seedlingRecordsData.length} entries
+            Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredSeedlingRecordsData.length)} of {filteredSeedlingRecordsData.length} entries
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             <button

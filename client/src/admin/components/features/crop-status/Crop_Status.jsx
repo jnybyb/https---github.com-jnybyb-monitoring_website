@@ -7,6 +7,7 @@ import {
   FaClipboardList 
 } from 'react-icons/fa';
 import { PiFileXLight } from "react-icons/pi";
+import { LuArrowDownUp, LuArrowUpAZ, LuArrowDownZA } from "react-icons/lu";
 import { Button } from '../../ui/BeneficiaryButtons';
 import AlertModal from '../../ui/AlertModal';
 import AddCropStatusModal from '../../features/crop-status/AddCropStatusModal';
@@ -141,6 +142,7 @@ const getAlertConfig = (type, title, message) => ({
 const CropStatusTable = () => {
   const [alertModal, setAlertModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
   const [cropStatusData, setCropStatusData] = useState([]);
+  const [filteredCropStatusData, setFilteredCropStatusData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -156,6 +158,12 @@ const CropStatusTable = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState({
+    key: null,
+    direction: 'default' // 'default', 'asc', 'desc'
+  });
+
   const styles = getCommonStyles();
 
   const fetchCropStatus = async () => {
@@ -164,6 +172,7 @@ const CropStatusTable = () => {
       setError(null);
       const data = await cropStatusAPI.getAll();
       setCropStatusData(data || []);
+      setFilteredCropStatusData(data || []);
     } catch (err) {
       const e = handleAPIError(err);
       setError(e.message || 'Failed to fetch crop status records. Please try again.');
@@ -188,8 +197,8 @@ const CropStatusTable = () => {
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = cropStatusData.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(cropStatusData.length / itemsPerPage);
+  const currentItems = filteredCropStatusData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredCropStatusData.length / itemsPerPage);
 
   const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -375,6 +384,79 @@ const CropStatusTable = () => {
     };
   };
 
+  // Sorting function
+  const handleSort = (key) => {
+    let direction = 'default';
+    
+    if (sortConfig.key === key) {
+      if (sortConfig.direction === 'default') {
+        direction = 'asc';
+      } else if (sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else {
+        direction = 'default';
+      }
+    } else {
+      direction = 'asc';
+    }
+
+    setSortConfig({ key, direction });
+
+    if (direction === 'default') {
+      setFilteredCropStatusData([...cropStatusData]);
+    } else {
+      const sorted = [...cropStatusData].sort((a, b) => {
+        let aValue, bValue;
+
+        if (key === 'beneficiaryId') {
+          aValue = a.beneficiaryId || '';
+          bValue = b.beneficiaryId || '';
+        } else if (key === 'name') {
+          const beneficiaryA = beneficiaries.find(b => b.beneficiaryId === a.beneficiaryId);
+          const beneficiaryB = beneficiaries.find(b => b.beneficiaryId === b.beneficiaryId);
+          aValue = beneficiaryA ? (beneficiaryA.fullName || `${beneficiaryA.firstName} ${beneficiaryA.middleName ? beneficiaryA.middleName + ' ' : ''}${beneficiaryA.lastName}`.trim()) : a.beneficiaryId;
+          bValue = beneficiaryB ? (beneficiaryB.fullName || `${beneficiaryB.firstName} ${beneficiaryB.middleName ? beneficiaryB.middleName + ' ' : ''}${beneficiaryB.lastName}`.trim()) : b.beneficiaryId;
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        } else if (key === 'surveyDate') {
+          aValue = a.surveyDate ? new Date(a.surveyDate).getTime() : 0;
+          bValue = b.surveyDate ? new Date(b.surveyDate).getTime() : 0;
+          if (direction === 'asc') {
+            return aValue - bValue;
+          } else {
+            return bValue - aValue;
+          }
+        } else {
+          aValue = a[key] || '';
+          bValue = b[key] || '';
+        }
+
+        if (direction === 'asc') {
+          return aValue.localeCompare(bValue);
+        } else {
+          return bValue.localeCompare(aValue);
+        }
+      });
+      setFilteredCropStatusData(sorted);
+    }
+  };
+
+  // Get sort icon for a column
+  const getSortIcon = (columnKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <LuArrowDownUp size={12} />;
+    }
+    
+    switch (sortConfig.direction) {
+      case 'asc':
+        return <LuArrowUpAZ size={12} />;
+      case 'desc':
+        return <LuArrowDownZA size={12} />;
+      default:
+        return <LuArrowDownUp size={12} />;
+    }
+  };
+
   return (
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 78px)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
@@ -382,7 +464,7 @@ const CropStatusTable = () => {
           <h2 style={{ color: '#2c5530', marginBottom: '0.2rem', fontSize: '1.4rem' }}>Crop Status</h2>
           <p style={{ color: '#6c757d', margin: '0', fontSize: '0.60rem' }}>Survey results and crop health monitoring</p>
         </div>
-        <Button onClick={handleAddClick} type="primary" size="medium" icon="+">Add Record</Button>
+          <Button onClick={handleAddClick} type="primary" size="medium" icon="+">Add Record</Button>
       </div>
 
       {error && (
@@ -396,7 +478,7 @@ const CropStatusTable = () => {
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>Loading...</h3>
             <p style={{ color: '#6c757d', margin: '0', fontSize: '0.875rem' }}>Please wait while we fetch the crop status records.</p>
           </div>
-        ) : cropStatusData.length === 0 ? (
+        ) : filteredCropStatusData.length === 0 ? (
           <div style={styles.emptyState}>
             <NoDataIcon type="crops" size="48px" color="#6c757d" />
             <h3 style={{ color: '#6c757d', marginBottom: '0.5rem', fontSize: '1.125rem' }}>No Data Available</h3>
@@ -409,8 +491,25 @@ const CropStatusTable = () => {
                 {columns.map((column, index) => (
                   <th key={index} style={{ 
                     ...styles.tableHeader, 
-                    ...(columnHeaderStyles[index] || {})
-                  }}>{column}</th>
+                    ...(columnHeaderStyles[index] || {}),
+                    cursor: (column === 'Beneficiary ID' || column === 'Name' || column === 'Survey Date') ? 'pointer' : 'default',
+                    userSelect: 'none'
+                  }}
+                  onClick={() => {
+                    if (column === 'Beneficiary ID') handleSort('beneficiaryId');
+                    else if (column === 'Name') handleSort('name');
+                    else if (column === 'Survey Date') handleSort('surveyDate');
+                  }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {(column === 'Beneficiary ID' || column === 'Name' || column === 'Survey Date') && (
+                        <span style={{ color: sortConfig.key === (column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : 'surveyDate') ? '#2c5530' : '#6c757d' }}>
+                          {getSortIcon(column === 'Beneficiary ID' ? 'beneficiaryId' : column === 'Name' ? 'name' : 'surveyDate')}
+                        </span>
+                      )}
+                      {column}
+                    </div>
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -441,10 +540,10 @@ const CropStatusTable = () => {
         )}
       </div>
 
-      {!loading && cropStatusData.length > 0 && (
+      {!loading && filteredCropStatusData.length > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', padding: '0.5rem', backgroundColor: 'white', borderTop: '0.5px solid rgba(36, 99, 59, 0.3)', position: 'sticky', bottom: '0', flexShrink: 0 }}>
           <div style={{ fontSize: '0.65rem', color: '#6c757d' }}>
-            Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, cropStatusData.length)} of {cropStatusData.length} entries
+            Items {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredCropStatusData.length)} of {filteredCropStatusData.length} entries
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             <Button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} type="pagination" size="pagination">&lt;</Button>
