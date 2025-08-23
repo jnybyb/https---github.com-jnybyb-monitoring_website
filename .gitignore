@@ -29,6 +29,8 @@ server/.env
 server/.env.*
 client/.env
 client/.env.*
+config.env
+server/config.env
 
 # Uploads and generated assets
 server/uploads/

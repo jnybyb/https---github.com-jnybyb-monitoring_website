@@ -5,7 +5,7 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 // Load environment variables
-require('dotenv').config({ path: path.join(__dirname, 'config.env') });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const { initializeDatabase } = require('./config/database');
 const apiRouter = require('./routes');
