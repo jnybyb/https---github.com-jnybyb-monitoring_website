@@ -6,7 +6,7 @@ class FarmPlot {
     const [rows] = await getPromisePool().query(
       `SELECT fp.id,
               fp.beneficiary_id AS beneficiaryId,
-              fp.plot_name AS plotName,
+              fp.plot_number AS plotNumber,
               fp.color,
               fp.coordinates,
               bd.first_name, bd.middle_name, bd.last_name,
@@ -20,7 +20,7 @@ class FarmPlot {
     return rows.map(r => ({
       id: r.id,
       beneficiaryId: r.beneficiaryId,
-      plotName: r.plotName,
+      plotNumber: r.plotNumber,
       color: r.color || '#2d7c4a',
       coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
       beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),
@@ -41,18 +41,18 @@ class FarmPlot {
     return {
       id: r.id,
       beneficiaryId: r.beneficiary_id,
-      plotName: r.plot_name,
+      plotNumber: r.plot_number,
       color: r.color || '#2d7c4a',
       coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]')
     };
   }
 
   static async create(farmPlotData) {
-    const sql = `INSERT INTO farm_plots (beneficiary_id, plot_name, color, coordinates)
+    const sql = `INSERT INTO farm_plots (beneficiary_id, plot_number, color, coordinates)
                  VALUES (?, ?, ?, ?)`;
     const params = [
       farmPlotData.beneficiaryId,
-      farmPlotData.plotName || 'Plot',
+      farmPlotData.plotNumber || 'Plot',
       farmPlotData.color || '#2d7c4a',
       JSON.stringify(farmPlotData.coordinates || [])
     ];
@@ -63,11 +63,11 @@ class FarmPlot {
 
   static async update(id, farmPlotData) {
     const sql = `UPDATE farm_plots SET 
-                 beneficiary_id = ?, plot_name = ?, color = ?, coordinates = ?
+                 beneficiary_id = ?, plot_number = ?, color = ?, coordinates = ?
                  WHERE id = ?`;
     const params = [
       farmPlotData.beneficiaryId,
-      farmPlotData.plotName || 'Plot',
+      farmPlotData.plotNumber || 'Plot',
       farmPlotData.color || '#2d7c4a',
       JSON.stringify(farmPlotData.coordinates || []),
       id
@@ -86,7 +86,7 @@ class FarmPlot {
     const [rows] = await getPromisePool().query(
       `SELECT fp.id,
               fp.beneficiary_id AS beneficiaryId,
-              fp.plot_name AS plotName,
+              fp.plot_number AS plotNumber,
               fp.color,
               fp.coordinates,
               bd.first_name, bd.middle_name, bd.last_name,
@@ -99,12 +99,11 @@ class FarmPlot {
     );
     
     if (!rows.length) return null;
-    
     const r = rows[0];
     return {
       id: r.id,
       beneficiaryId: r.beneficiaryId,
-      plotName: r.plotName,
+      plotNumber: r.plotNumber,
       color: r.color || '#2d7c4a',
       coordinates: Array.isArray(r.coordinates) ? r.coordinates : JSON.parse(r.coordinates || '[]'),
       beneficiaryName: `${r.first_name || ''} ${r.middle_name ? r.middle_name + ' ' : ''}${r.last_name || ''}`.replace(/\s+/g, ' ').trim(),

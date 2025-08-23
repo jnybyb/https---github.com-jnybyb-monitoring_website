@@ -66,13 +66,13 @@ CREATE TABLE IF NOT EXISTS crop_status (
 CREATE TABLE IF NOT EXISTS farm_plots (
   id INT AUTO_INCREMENT PRIMARY KEY,
   beneficiary_id VARCHAR(20) NOT NULL,
-  plot_name VARCHAR(255) NOT NULL,
+  plot_number VARCHAR(255) NOT NULL,
   color VARCHAR(20) NULL,
   coordinates JSON NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_farm_plots_beneficiary_id (beneficiary_id),
-  INDEX idx_farm_plots_plot_name (plot_name)
+  INDEX idx_farm_plots_plot_number (plot_number)
 );
 
 -- Drop existing plot foreign key constraints if they exist

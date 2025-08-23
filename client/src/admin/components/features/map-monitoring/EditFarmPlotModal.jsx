@@ -36,6 +36,7 @@ const headerStyle = {
   textAlign: 'left',
   borderBottom: '1px solid #e0e0e0',
   paddingBottom: 12,
+  color: '#2c5530',
 };
 
 const closeBtnStyle = {
@@ -170,6 +171,13 @@ const coordinateFieldsStyle = {
   alignItems: 'flex-start',
 };
 
+const plotNameInputStyle = {
+  ...inputStyle,
+  fontSize: 16,
+  fontWeight: 500,
+  color: '#2c5530',
+};
+
 // Helper function to convert DMS to Decimal Degrees
 const dmsToDecimal = (dmsString) => {
   if (!dmsString) return null;
@@ -213,19 +221,51 @@ const detectCoordinateFormat = (coordString) => {
   return 'unknown';
 };
 
-function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading = false }) {
+function EditFarmPlotModal({ isOpen, onClose, onSubmit, plot, beneficiaries, isLoading = false }) {
   const [plotNumber, setPlotNumber] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [coordinates, setCoordinates] = useState([
     { lat: '', lng: '' },
     { lat: '', lng: '' },
     { lat: '', lng: '' }
-  ]); // Start with 3 minimum coordinates
+  ]);
   const [errors, setErrors] = useState({});
 
   // Find selected beneficiary object
   const selected = beneficiaries?.find(b => b.beneficiaryId === selectedId || b.id === selectedId) || {};
 
+  // Initialize form data when plot changes
+  useEffect(() => {
+    if (plot && isOpen) {
+      setPlotNumber(plot.plotNumber || '');
+      setSelectedId(plot.beneficiaryId || '');
+      
+      // Initialize coordinates from existing plot data
+      if (plot.coordinates && Array.isArray(plot.coordinates)) {
+        const plotCoordinates = plot.coordinates.map(coord => ({
+          lat: coord.lat?.toString() || '',
+          lng: coord.lng?.toString() || ''
+        }));
+        
+        // Ensure minimum 3 coordinates
+        while (plotCoordinates.length < 3) {
+          plotCoordinates.push({ lat: '', lng: '' });
+        }
+        
+        setCoordinates(plotCoordinates);
+      } else {
+        setCoordinates([
+          { lat: '', lng: '' },
+          { lat: '', lng: '' },
+          { lat: '', lng: '' }
+        ]);
+      }
+      
+      setErrors({});
+    }
+  }, [plot, isOpen]);
+
+  // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setPlotNumber('');
@@ -311,7 +351,7 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
     }
     
     if (!selectedId) {
-      newErrors.selectedId = 'Required';
+      newErrors.selectedId = 'Beneficiary is required';
     }
     
     // Validate coordinates
@@ -328,32 +368,35 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
       const convertedCoordinates = validateAndConvertCoordinates(validCoordinates);
       
       onSubmit({
+        id: plot.id, // Keep the original plot ID
         plotNumber: plotNumber.trim(),
         beneficiaryId: selected.beneficiaryId || selected.id,
         fullName: selected.fullName || selected.name,
         address: selected.address,
         coordinates: convertedCoordinates,
+        color: plot.color, // Keep the original color
       });
-    onClose();
+      
+      onClose();
     } catch (error) {
       newErrors.coordinates = error.message;
       setErrors(newErrors);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !plot) return null;
 
   return (
     <div style={modalStyle}>
       <form style={formStyle} onSubmit={handleSubmit}>
         <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="Close">×</button>
-        <div style={headerStyle}>Beneficiary Plot</div>
+        <div style={headerStyle}>Edit Farm Plot</div>
         
         {/* Plot Number */}
         <div>
           <label style={labelStyle}>Plot Number</label>
           <input
-            style={inputStyle}
+            style={plotNameInputStyle}
             type="text"
             value={plotNumber}
             onChange={e => setPlotNumber(e.target.value)}
@@ -362,10 +405,11 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
           />
           {errors.plotNumber && <div style={{ color: '#c00', fontSize: 12 }}>{errors.plotNumber}</div>}
         </div>
-        
+
+        {/* Beneficiary Selection */}
         <div>
           <label style={labelStyle}>Beneficiary Full Name</label>
-              <select
+          <select
             style={inputStyle}
             value={selectedId}
             onChange={e => setSelectedId(e.target.value)}
@@ -375,36 +419,39 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
             {beneficiaries?.map(b => (
               <option key={b.beneficiaryId || b.id} value={b.beneficiaryId || b.id}>
                 {b.fullName || b.name || `${b.firstName || ''} ${b.middleName || ''} ${b.lastName || ''}`.trim()}
-                    </option>
+              </option>
             ))}
-              </select>
+          </select>
           {errors.selectedId && <div style={{ color: '#c00', fontSize: 12 }}>{errors.selectedId}</div>}
-            </div>
+        </div>
 
-            <div>
+        {/* Beneficiary ID (Read-only) */}
+        <div>
           <label style={labelStyle}>Beneficiary ID</label>
-              <input
+          <input
             style={readOnlyInputStyle}
             value={selected.beneficiaryId || selected.id || ''}
-                readOnly
+            readOnly
             tabIndex={-1}
-              />
-            </div>
+          />
+        </div>
 
-            <div>
+        {/* Address (Read-only) */}
+        <div>
           <label style={labelStyle}>Address</label>
-              <input
+          <input
             style={readOnlyInputStyle}
             value={selected.address || `${selected.purok || ''}, ${selected.barangay || ''}, ${selected.municipality || ''}, ${selected.province || ''}`.replace(/^,\s*/, '').replace(/,\s*,/g, ',') || ''}
-                readOnly
+            readOnly
             tabIndex={-1}
-              />
-            </div>
+          />
+        </div>
 
-              <div>
+        {/* Plot Boundary Coordinates */}
+        <div>
           <div style={sectionTitleStyle}>Plot Boundary Coordinates</div>
           <p style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
-            Add coordinate points to define the plot boundary. Minimum 3 points required.
+            Edit coordinate points to define the plot boundary. Minimum 3 points required.
             <br />
             <strong>Supported formats:</strong>
             <br />
@@ -420,35 +467,35 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
                 <div style={coordinateFieldsStyle}>
                   <div style={{ flex: 1 }}>
                     <label style={{ ...labelStyle, fontSize: 11 }}>Latitude</label>
-                <input
+                    <input
                       style={inputStyle}
                       type="text"
                       value={coord.lat}
                       onChange={e => updateCoordinate(index, 'lat', e.target.value)}
                       placeholder=" "
                     />
-              </div>
+                  </div>
                   <div style={{ flex: 1 }}>
                     <label style={{ ...labelStyle, fontSize: 11 }}>Longitude</label>
-                <input
+                    <input
                       style={inputStyle}
                       type="text"
                       value={coord.lng}
                       onChange={e => updateCoordinate(index, 'lng', e.target.value)}
                       placeholder=" "
                     />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
               {coordinates.length > 3 && (
-          <button
-            type="button"
+                <button
+                  type="button"
                   style={removeButtonStyle}
                   onClick={() => removeCoordinate(index)}
                   title="Remove coordinate"
                 >
                   ×
-          </button>
+                </button>
               )}
             </div>
           ))}
@@ -460,6 +507,7 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
           {errors.coordinates && <div style={{ color: '#c00', fontSize: 12, marginTop: 8 }}>{errors.coordinates}</div>}
         </div>
 
+        {/* Action Buttons */}
         <div style={buttonRowStyle}>
           <button type="button" style={cancelBtnStyle} onClick={onClose} disabled={isLoading}>
             Cancel
@@ -473,7 +521,7 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
             }} 
             disabled={isLoading}
           >
-            {isLoading ? 'Saving...' : 'Save Plot'}
+            {isLoading ? 'Updating...' : 'Update Plot'}
           </button>
         </div>
       </form>
@@ -481,4 +529,4 @@ function AddFarmPlotModal({ isOpen, onClose, onSubmit, beneficiaries, isLoading 
   );
 }
 
-export default AddFarmPlotModal;
+export default EditFarmPlotModal;

@@ -42,7 +42,14 @@ class FarmPlotController {
       if (!success) {
         return res.status(404).json({ error: 'Farm plot not found' });
       }
-      res.json({ success: true });
+      
+      // Fetch the updated farm plot with beneficiary details
+      const updatedPlot = await FarmPlot.findWithBeneficiaryDetails(req.params.id);
+      if (!updatedPlot) {
+        return res.status(404).json({ error: 'Updated farm plot not found' });
+      }
+      
+      res.json(updatedPlot);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

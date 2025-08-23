@@ -178,8 +178,11 @@ const PersonalDetailsTable = () => {
   // Handler for form submission
   const handleSubmitBeneficiary = async (beneficiaryData) => {
     try {
-      const newBeneficiary = { ...beneficiaryData, id: beneficiaryData.id || Date.now() };
-      setBeneficiaries(prev => [...prev, newBeneficiary]);
+      // After creating on the server, refresh the list to get the canonical
+      // picture URL (instead of keeping a File object in state).
+      const res = await beneficiariesAPI.getAll();
+      const records = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setBeneficiaries(records);
       handleCloseModal();
       setAlertModal({ isOpen: true, type: 'success', title: 'Success', message: 'Beneficiary has been added successfully.' });
     } catch (error) {
@@ -463,7 +466,7 @@ const PersonalDetailsTable = () => {
   };
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', overflow: 'hidden' }}>
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 78px)', overflow: 'hidden' }}>
       <style>{`@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }`}</style>
       
       {/* Header section */}
@@ -490,16 +493,18 @@ const PersonalDetailsTable = () => {
         </div>
 
       {/* Sticky pagination anchored to MainContent container (outside the inner scroller) */}
-      <Pagination
-        currentPage={currentPage}
-        totalRecords={totalRecords}
-        pageSize={pageSize}
-        onPageChange={(page) => setCurrentPage(page)}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setCurrentPage(1);
-        }}
-      />
+      {beneficiaries.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalRecords={totalRecords}
+          pageSize={pageSize}
+          onPageChange={(page) => setCurrentPage(page)}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+        />
+      )}
 
       {/* Add Beneficiary Modal */}
       <AddBeneficiaryModal

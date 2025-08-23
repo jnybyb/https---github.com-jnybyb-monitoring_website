@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import DeleteFarmPlotModal from './DeleteFarmPlotModal';
 
 const modalStyle = {
   position: 'fixed',
@@ -199,6 +200,8 @@ const getInitials = (name) => {
 };
 
 function ViewFarmPlotModal({ isOpen, onClose, plot, onEdit, onDelete, plotIndex }) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
   if (!isOpen || !plot) return null;
 
   const handleEdit = () => {
@@ -209,9 +212,18 @@ function ViewFarmPlotModal({ isOpen, onClose, plot, onEdit, onDelete, plotIndex 
   };
 
   const handleDelete = () => {
-    if (onDelete && confirm(`Are you sure you want to delete Plot #${plotIndex + 1}?`)) {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (onDelete) {
       onDelete(plot, plotIndex);
     }
+    setShowDeleteModal(false);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
   };
 
   // Calculate center point for location display
@@ -238,7 +250,7 @@ function ViewFarmPlotModal({ isOpen, onClose, plot, onEdit, onDelete, plotIndex 
     <div style={modalStyle}>
       <div style={formStyle}>
         <div style={headerStyle}>
-          Farm Plot Details - Plot #{plotIndex + 1}
+          {plot.plotNumber ? plot.plotNumber : `Farm Plot Details - Plot #${plotIndex + 1}`}
           <button type="button" style={closeBtnStyle} onClick={onClose} aria-label="Close">×</button>
         </div>
         
@@ -262,6 +274,17 @@ function ViewFarmPlotModal({ isOpen, onClose, plot, onEdit, onDelete, plotIndex 
               )}
             </div>
             <div style={profileInfoStyle}>
+              {plot.plotNumber && (
+                <div style={{ 
+                  fontSize: 14, 
+                  color: '#2d7c4a', 
+                  fontWeight: '600', 
+                  marginBottom: 8,
+                  fontStyle: 'italic'
+                }}>
+                  {plot.plotNumber}
+                </div>
+              )}
               <div style={beneficiaryNameStyle}>{plot.beneficiaryName || 'Unknown Beneficiary'}</div>
               <div style={beneficiaryIdStyle}>ID: {plot.beneficiaryId || 'N/A'}</div>
               <div style={addressStyle}>{plot.address || 'Address not available'}</div>
@@ -310,6 +333,14 @@ function ViewFarmPlotModal({ isOpen, onClose, plot, onEdit, onDelete, plotIndex 
           </div>
         </div>
       </div>
+      
+      {/* Delete Farm Plot Modal */}
+      <DeleteFarmPlotModal
+        isOpen={showDeleteModal}
+        onClose={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+        plot={plot}
+      />
     </div>
   );
 }

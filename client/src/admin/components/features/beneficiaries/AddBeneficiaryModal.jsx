@@ -341,14 +341,7 @@ const AddBeneficiaryModal = ({ isOpen, onClose, onSubmit }) => {
           }
         } catch (error) {
           console.error('Error generating beneficiary ID:', error);
-          // Use a shorter fallback ID format
-          const timestamp = Date.now().toString().slice(-6); // Last 6 digits
-          generatedBeneficiaryId = `BEN${timestamp}`;
-          
-          // Validate fallback ID length
-          if (generatedBeneficiaryId.length > 20) {
-            generatedBeneficiaryId = `BEN${timestamp.slice(-3)}`; // Use only last 3 digits if still too long
-          }
+          throw new Error(error?.message || 'Failed to generate beneficiary ID from server');
         }
 
         const payload = {

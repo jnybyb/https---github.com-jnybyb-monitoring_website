@@ -154,7 +154,7 @@ const AdminDashboard = () => {
 
   return (
     <Layout>
-      <div className="admin-content">
+      <div className="admin-content" style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%', flexDirection: 'column' }}>
         {content}
       </div>
     </Layout>
