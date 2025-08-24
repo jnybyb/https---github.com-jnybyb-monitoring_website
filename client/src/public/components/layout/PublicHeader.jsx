@@ -9,7 +9,7 @@ const PublicHeader = () => {
         left: 0,
         right: 0,
         zIndex: 1000,
-        background: 'rgba(0, 0, 0, 0.8)',
+        background: 'transparent',
         backdropFilter: 'blur(10px)',
         padding: '1rem 2rem',
         display: 'flex',

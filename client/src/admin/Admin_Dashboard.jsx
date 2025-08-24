@@ -5,7 +5,7 @@ import PersonalDetailsTable from './components/features/beneficiaries/Personal_D
 import SeedlingRecordsTable from './components/features/seedlings/Seedling_Records';
 import CropStatusTable from './components/features/crop-status/Crop_Status';
 import MapMonitoring from './components/features/map-monitoring/Map_Monitoring';
-import { getActiveFromPath, navigateToPage } from './utils/navigation';
+import { getActiveFromPath } from './utils/navigation';
 import { useStatistics } from './hooks/useStatistics';
 
 // Dashboard Content Component
@@ -84,12 +84,7 @@ const DashboardContent = ({ active }) => {
 
 const AdminDashboard = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const active = getActiveFromPath(location.pathname);
-
-  const handleNavigate = (page) => {
-    navigateToPage(page, navigate);
-  };
 
   // Render content based on active page
   let content;

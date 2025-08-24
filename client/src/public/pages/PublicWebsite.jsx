@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import bgImage from '../../assets/images/bg1.png';
 import PublicHeader from '../components/layout/PublicHeader';
 import PublicFooter from '../components/layout/PublicFooter';
+import { statisticsAPI } from '../../admin/services/api'; // Corrected import path
 
 const PublicWebsite = () => {
-  const handleNavigateToDashboard = () => {
-    // Open admin website in a new tab/window on port 3001
-    window.open('http://localhost:3001', '_blank');
-  };
+  const [stats, setStats] = useState({
+    totalBeneficiaries: 0,
+    totalSeedsDistributed: 0,
+    totalAlive: 0,
+    totalDead: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const data = await statisticsAPI.getDashboardStats();
+        setStats(data);
+      } catch (error) {
+        console.error('Error fetching public statistics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div
@@ -58,28 +76,29 @@ const PublicWebsite = () => {
           position: 'relative',
           zIndex: 3,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'flex-start',
+          justifyContent: 'center',
           flex: 1,
           padding: '2rem',
-          paddingTop: '6rem', // Account for fixed header
+          textAlign: 'center',
         }}
       >
         <div
-          className="p-8 rounded-2xl shadow-lg max-w-2xl text-left mx-4"
+          className="p-8 rounded-2xl shadow-lg max-w-3xl text-center mx-auto"
           style={{
             color: '#fff',
             background: 'none',
           }}
         >
           <h1
-            className="text-4xl md:text-5xl font-bold mb-4"
-            style={{ color: 'inherit' }}
+            className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight"
+            style={{ color: '#228B22' }}
           >
             Welcome to KAPPI
           </h1>
           <p
-            className="text-lg md:text-xl"
+            className="text-xl md:text-2xl font-light mb-8"
             style={{ color: 'inherit' }}
           >
             A Coffee Farm Monitoring Website for Taocanga, Manay, Davao Oriental.
@@ -87,32 +106,33 @@ const PublicWebsite = () => {
           
           {/* Additional public website content */}
           <div style={{ marginTop: '2rem' }}>
-            <p style={{ fontSize: '1rem', lineHeight: '1.6', opacity: 0.9 }}>
+            <p style={{ fontSize: '1.1rem', lineHeight: '1.8', opacity: 0.9, maxWidth: '700px', margin: '0 auto' }}>
               Discover the rich coffee heritage of our region and learn about sustainable farming practices 
               that support local communities and preserve our environment.
             </p>
             
-            {/* Admin Dashboard Button */}
-            <button
-              onClick={handleNavigateToDashboard}
-              style={{
-                marginTop: '2rem',
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#2c5530',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-              }}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#1e3a23'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#2c5530'}
-            >
-              Access Admin Dashboard
-            </button>
+            {loading ? (
+              <p style={{ marginTop: '2rem' }}>Loading statistics...</p>
+            ) : (
+              <div style={{ marginTop: '3rem', display: 'flex', justifyContent: 'center', gap: '3rem', flexWrap: 'wrap' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: 0, lineHeight: '1' }}>{stats.totalBeneficiaries}</p>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>Total Beneficiaries</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: 0, lineHeight: '1' }}>{stats.totalSeedsDistributed.toLocaleString()}</p>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>Total Seeds Distributed</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: 0, lineHeight: '1' }}>{stats.totalAlive.toLocaleString()}</p>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>Alive Crops</p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '3rem', fontWeight: 'bold', margin: 0, lineHeight: '1' }}>{stats.totalDead.toLocaleString()}</p>
+                  <p style={{ fontSize: '1rem', opacity: 0.8, marginTop: '0.5rem' }}>Dead Crops</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
