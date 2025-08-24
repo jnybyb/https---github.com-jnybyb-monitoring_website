@@ -145,9 +145,7 @@ const MapMonitoring = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [beneficiaries, setBeneficiaries] = useState([]);
-  const [loadingBeneficiaries, setLoadingBeneficiaries] = useState(false);
   const [farmPlots, setFarmPlots] = useState([]); // Store farm plots data
-  const [loadingFarmPlots, setLoadingFarmPlots] = useState(false);
   const [isCreatingPlot, setIsCreatingPlot] = useState(false); // Loading state for plot creation
   const [showSuccessModal, setShowSuccessModal] = useState(false); // Success modal state
   const [successMessage, setSuccessMessage] = useState(''); // Success message for modal
@@ -439,9 +437,6 @@ const MapMonitoring = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoadingBeneficiaries(true);
-        setLoadingFarmPlots(true);
-        
         console.log('Starting to fetch data...');
         
         // Fetch beneficiaries and farm plots in parallel
@@ -452,6 +447,7 @@ const MapMonitoring = () => {
         
         console.log('Fetched beneficiaries:', beneficiariesData);
         console.log('Number of beneficiaries:', beneficiariesData?.length || 0);
+        console.log('Beneficiaries structure:', beneficiariesData?.[0] || 'No beneficiaries');
         console.log('Fetched farm plots:', farmPlotsData);
         
         setBeneficiaries(beneficiariesData || []);
@@ -459,9 +455,6 @@ const MapMonitoring = () => {
       } catch (error) {
         console.error('Error fetching data:', error);
         alert('Failed to fetch data: ' + error.message);
-      } finally {
-        setLoadingBeneficiaries(false);
-        setLoadingFarmPlots(false);
       }
     };
 

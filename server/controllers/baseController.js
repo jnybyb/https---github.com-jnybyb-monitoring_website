@@ -40,6 +40,11 @@ class BaseController {
   static sendForbidden(res, message = 'Forbidden') {
     res.status(403).json({ error: message });
   }
+
+  // Send 400 Bad Request
+  static sendBadRequest(res, message = 'Bad request') {
+    res.status(400).json({ error: message });
+  }
 }
 
 module.exports = BaseController;
